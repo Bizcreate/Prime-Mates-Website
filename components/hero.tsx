@@ -22,7 +22,7 @@ export function Hero() {
     },
     {
       title: "METAVERSE GAMING",
-      subtitle: "GTA x Tony Hawk Style Experience",
+      subtitle: "RIDE. Build. Own.",
       cta: "Play Games",
       action: "#games",
     },

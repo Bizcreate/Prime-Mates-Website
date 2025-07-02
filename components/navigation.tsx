@@ -30,7 +30,6 @@ export function Navigation() {
             <Image src="/images/banana-logo.png" alt="Prime Mates Board Club" width={50} height={50} className="mr-3" />
             <div className="hidden sm:block">
               <h1 className="text-xl font-black text-yellow-400">PMBC</h1>
-              <p className="text-xs text-yellow-300">BOARD CLUB</p>
             </div>
           </div>
 

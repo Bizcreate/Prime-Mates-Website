@@ -10,16 +10,16 @@ export function Community() {
   const [email, setEmail] = useState("")
 
   const stats = [
-    { icon: Users, value: "25K+", label: "Community Members" },
-    { icon: MessageCircle, value: "500+", label: "Daily Messages" },
-    { icon: Zap, value: "20.5K", label: "NFTs Owned" },
+    { icon: Users, value: "1000+", label: "Community Members" },
+    { icon: MessageCircle, value: "100+", label: "Daily Messages" },
+    { icon: Zap, value: "10K", label: "NFTs Owned" },
   ]
 
   const socialLinks = [
-    { icon: Discord, label: "Discord", href: "#", color: "hover:text-purple-400", members: "15K" },
-    { icon: Twitter, label: "Twitter", href: "#", color: "hover:text-blue-400", members: "8K" },
-    { icon: Instagram, label: "Instagram", href: "#", color: "hover:text-pink-400", members: "12K" },
-    { icon: Youtube, label: "YouTube", href: "#", color: "hover:text-red-400", members: "5K" },
+    { icon: Discord, label: "Discord", href: "#", color: "hover:text-purple-400", members: "4K" },
+    { icon: Twitter, label: "Twitter", href: "#", color: "hover:text-blue-400", members: "9K" },
+    { icon: Instagram, label: "Instagram", href: "#", color: "hover:text-pink-400", members: "3K" },
+    { icon: Youtube, label: "YouTube", href: "#", color: "hover:text-red-400", members: "1K" },
   ]
 
   const communityFeatures = [
