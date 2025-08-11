@@ -3,27 +3,35 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
+import { ThemeProvider } from "@/components/theme-provider"
+import { CartProvider } from "@/context/cart-context" // Import CartProvider
+import { Toaster } from "@/components/ui/toaster" // Import Toaster for toasts
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Prime Mates Board Club - Where Board Culture Meets Digital Innovation",
-  description:
-    "Join the ultimate board sports community featuring NFT collections, games, merch, and events for skate, surf, and snow enthusiasts. Shaka forever! 🤙",
-  keywords: "NFT, skateboarding, surfing, snowboarding, board sports, gaming, metaverse, community",
+  title: "Prime Mates Board Club",
+  description: "Official website for Prime Mates Board Club",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Navigation />
-        <div className="pt-20">{children}</div>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <CartProvider>
+            {" "}
+            {/* Wrap children with CartProvider */}
+            <Navigation />
+            <div className="pt-20">{children}</div>
+            <Toaster /> {/* Add Toaster for toasts */}
+          </CartProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

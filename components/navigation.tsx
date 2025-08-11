@@ -2,23 +2,26 @@
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, ShoppingCart, User } from "lucide-react"
+import { Menu, User } from "lucide-react"
 import { useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
+import { CartDisplay } from "@/components/cart-display"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
 
   const navItems = [
     { name: "Home", href: "#home" },
-    { name: "NFTs", href: "#nfts" },
-    { name: "Games", href: "#games" },
-    { name: "Prime Arcade", href: "#prime-arcade" },
-    { name: "Merch", href: "#merch" },
-    { name: "Events", href: "#events" },
+    { name: "NFTs", href: "/nfts" },
+    { name: "Games", href: "/games" },
+    { name: "Prime Arcade", href: "/games" },
+    { name: "Merch", href: "/merch" }, // Now points to the combined merch/store page
+    { name: "Events", href: "/events" },
     { name: "About", href: "#about" },
     { name: "Community", href: "#community" },
     { name: "Contact", href: "#contact" },
+    { name: "Admin Products", href: "/admin/products" }, // Link to admin product management
   ]
 
   return (
@@ -36,25 +39,23 @@ export function Navigation() {
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
             {navItems.map((item) => (
-              <a
+              <Link
                 key={item.name}
                 href={item.href}
                 className="text-white hover:text-yellow-400 transition-colors font-medium text-sm uppercase tracking-wide"
+                onClick={() => setIsOpen(false)}
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
           </div>
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="text-white hover:text-yellow-400 hover:bg-yellow-400/10">
-              <ShoppingCart className="h-5 w-5" />
-            </Button>
+            <CartDisplay /> {/* Integrated CartDisplay */}
             <Button variant="ghost" size="sm" className="text-white hover:text-yellow-400 hover:bg-yellow-400/10">
               <User className="h-5 w-5" />
             </Button>
-
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="lg:hidden">
@@ -65,14 +66,14 @@ export function Navigation() {
               <SheetContent side="right" className="bg-black border-yellow-400/20">
                 <div className="flex flex-col space-y-6 mt-8">
                   {navItems.map((item) => (
-                    <a
+                    <Link
                       key={item.name}
                       href={item.href}
                       className="text-white hover:text-yellow-400 transition-colors font-medium text-lg uppercase tracking-wide"
                       onClick={() => setIsOpen(false)}
                     >
                       {item.name}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </SheetContent>
