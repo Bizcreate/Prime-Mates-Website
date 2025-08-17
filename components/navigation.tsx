@@ -12,17 +12,17 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
 
   const navItems = [
-    { name: "Home", href: "#home" },
+    { name: "Home", href: "/" },
     { name: "NFTs", href: "/nfts" },
-    { name: "Mint", href: "/mint" }, // Added Mint link to navigation menu
-    { name: "Dashboard", href: "/dashboard" }, // Added member dashboard link
-    { name: "Community", href: "/community" }, // Added Community link to navigation
+    { name: "Mint", href: "/mint" },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "Community", href: "/community" },
     { name: "Games", href: "/games" },
     { name: "Prime Arcade", href: "/games" },
     { name: "Merch", href: "/merch" },
     { name: "Events", href: "/events" },
-    { name: "About", href: "#about" },
-    { name: "Contact", href: "#contact" },
+    { name: "About", href: "/#about" },
+    { name: "Contact", href: "/#contact" },
   ]
 
   return (
