@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Wallet, Plus, Minus, ExternalLink, Users, Clock, Zap, Gift, Star, Trophy } from "lucide-react"
+import { web3Service } from "@/lib/web3"
 
 const CONTRACT_ADDRESS = "0x12662b6a2a424a0090b7d09401fb775a9b968898"
 
@@ -18,32 +19,47 @@ export default function MintPage() {
   const [mintQuantity, setMintQuantity] = useState(1)
   const [isMinting, setIsMinting] = useState(false)
   const [totalSupply, setTotalSupply] = useState(1661)
-  const [maxSupply] = useState(2222)
-  const [mintPrice] = useState(0.05)
+  const [maxSupply, setMaxSupply] = useState(2222)
+  const [mintPrice, setMintPrice] = useState(0.05)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
+
+  useEffect(() => {
+    loadCollectionStats()
+  }, [])
+
+  const loadCollectionStats = async () => {
+    setIsLoadingStats(true)
+    try {
+      const stats = await web3Service.getCollectionStats()
+      setTotalSupply(stats.totalSupply)
+      setMaxSupply(stats.maxSupply)
+      setMintPrice(Number.parseFloat(stats.mintPrice))
+    } catch (error) {
+      console.error("Failed to load collection stats:", error)
+      // Keep default values if loading fails
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
 
   const connectWallet = async () => {
     try {
-      if (typeof window.ethereum !== "undefined") {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        })
-        setWalletAddress(accounts[0])
+      const address = await web3Service.connectWallet()
+      if (address) {
+        setWalletAddress(address)
         setIsConnected(true)
         toast({
           title: "Wallet Connected",
-          description: `Connected to ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`,
+          description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
         })
       } else {
-        toast({
-          title: "MetaMask Not Found",
-          description: "Please install MetaMask to mint NFTs",
-          variant: "destructive",
-        })
+        throw new Error("Failed to connect wallet")
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Wallet connection error:", error)
       toast({
         title: "Connection Failed",
-        description: "Failed to connect wallet",
+        description: error.message || "Failed to connect wallet",
         variant: "destructive",
       })
     }
@@ -61,18 +77,38 @@ export default function MintPage() {
 
     setIsMinting(true)
     try {
-      // Simulate minting process
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      console.log("[v0] Starting mint process for", mintQuantity, "NFTs")
 
-      setTotalSupply((prev) => prev + mintQuantity)
-      toast({
-        title: "Minting Successful!",
-        description: `Successfully minted ${mintQuantity} Prime Mates NFT${mintQuantity > 1 ? "s" : ""}`,
-      })
-    } catch (error) {
+      const txHash = await web3Service.mintNFT(mintQuantity)
+
+      if (txHash) {
+        // Refresh collection stats after successful mint
+        await loadCollectionStats()
+
+        toast({
+          title: "Minting Successful!",
+          description: (
+            <div>
+              <p>
+                Successfully minted {mintQuantity} Prime Mates NFT{mintQuantity > 1 ? "s" : ""}!
+              </p>
+              <a
+                href={`https://etherscan.io/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline text-sm"
+              >
+                View on Etherscan →
+              </a>
+            </div>
+          ),
+        })
+      }
+    } catch (error: any) {
+      console.error("Minting error:", error)
       toast({
         title: "Minting Failed",
-        description: "Failed to mint NFT. Please try again.",
+        description: error.message || "Failed to mint NFT. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -120,7 +156,7 @@ export default function MintPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="text-xl font-bold text-[#fdc730]">
-                        Prime Mates #{(1661 + Math.floor(Math.random() * 100)).toString().padStart(4, "0")}
+                        Prime Mates #{(totalSupply + Math.floor(Math.random() * 100)).toString().padStart(4, "0")}
                       </h3>
                       <p className="text-gray-400">Board Club Member</p>
                     </div>
@@ -136,7 +172,9 @@ export default function MintPage() {
                 <Card className="bg-gray-900/30 border-gray-800 border-t-2 border-t-[#fdc730]">
                   <CardContent className="p-4 text-center">
                     <Users className="w-6 h-6 text-[#fdc730] mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-[#fdc730]">{totalSupply.toLocaleString()}</div>
+                    <div className="text-2xl font-bold text-[#fdc730]">
+                      {isLoadingStats ? "..." : totalSupply.toLocaleString()}
+                    </div>
                     <div className="text-sm text-gray-400">Minted</div>
                   </CardContent>
                 </Card>
@@ -150,7 +188,9 @@ export default function MintPage() {
                 <Card className="bg-gray-900/30 border-gray-800 border-t-2 border-t-[#fdc730]">
                   <CardContent className="p-4 text-center">
                     <Zap className="w-6 h-6 text-[#fdc730] mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-[#fdc730]">{mintPrice} ETH</div>
+                    <div className="text-2xl font-bold text-[#fdc730]">
+                      {isLoadingStats ? "..." : `${mintPrice} ETH`}
+                    </div>
                     <div className="text-sm text-gray-400">Mint Price</div>
                   </CardContent>
                 </Card>
@@ -344,7 +384,9 @@ export default function MintPage() {
                     <div className="text-2xl mb-2">🏄‍♂️</div>
                     <h4 className="font-bold text-green-400 mb-2">Grom</h4>
                     <p className="text-sm text-gray-400 mb-2">3-5 NFTs</p>
-                    <Badge className="bg-green-900 text-green-300">10% Share</Badge>
+                    <Badge variant="outline" className="bg-green-900 text-green-300">
+                      10% Share
+                    </Badge>
                     <p className="text-xs text-green-400 mt-1">+ Free Skateboard</p>
                   </CardContent>
                 </Card>
@@ -354,7 +396,9 @@ export default function MintPage() {
                     <div className="text-2xl mb-2">🛹</div>
                     <h4 className="font-bold text-blue-400 mb-2">Amateur</h4>
                     <p className="text-sm text-gray-400 mb-2">6-9 NFTs</p>
-                    <Badge className="bg-blue-900 text-blue-300">20% Share</Badge>
+                    <Badge variant="outline" className="bg-blue-900 text-blue-300">
+                      20% Share
+                    </Badge>
                     <p className="text-xs text-blue-400 mt-1">+ Free Skateboard</p>
                   </CardContent>
                 </Card>
@@ -364,7 +408,9 @@ export default function MintPage() {
                     <div className="text-2xl mb-2">🏆</div>
                     <h4 className="font-bold text-purple-400 mb-2">Pro</h4>
                     <p className="text-sm text-gray-400 mb-2">10-15 NFTs</p>
-                    <Badge className="bg-purple-900 text-purple-300">30% Share</Badge>
+                    <Badge variant="outline" className="bg-purple-900 text-purple-300">
+                      30% Share
+                    </Badge>
                     <p className="text-xs text-purple-400 mt-1">+ Free Skateboard</p>
                   </CardContent>
                 </Card>
