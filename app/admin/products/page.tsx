@@ -195,12 +195,16 @@ export default function ProductsPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <Link href={`/admin/products/${product.id}`}>
+                            <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link href={`/admin/products/${product.id}/edit`}>
+                            <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
                           <Button
                             variant="ghost"
                             size="sm"
