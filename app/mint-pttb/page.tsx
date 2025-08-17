@@ -65,6 +65,7 @@ export default function MintPTTBPage() {
   const [mintPrice, setMintPrice] = useState(85) // 85 MATIC for public
   const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [currentArtworkIndex, setCurrentArtworkIndex] = useState(0)
+  const [showConnectionGuide, setShowConnectionGuide] = useState(false)
 
   useEffect(() => {
     loadCollectionStats()
@@ -96,10 +97,12 @@ export default function MintPTTBPage() {
 
   const connectWallet = async () => {
     try {
+      setShowConnectionGuide(true)
       const address = await web3Service.connectWallet()
       if (address) {
         setWalletAddress(address)
         setIsConnected(true)
+        setShowConnectionGuide(false)
         toast({
           title: "Wallet Connected",
           description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
@@ -108,12 +111,23 @@ export default function MintPTTBPage() {
         throw new Error("Failed to connect wallet")
       }
     } catch (error: any) {
-      console.error("Wallet connection error:", error)
-      toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect wallet",
-        variant: "destructive",
-      })
+      console.log("[v0] Wallet connection failed:", error)
+      setShowConnectionGuide(false)
+      if (error.code === "ACTION_REJECTED" || error.code === 4001) {
+        toast({
+          title: "Connection Cancelled",
+          description:
+            "You need to click 'Connect' in your wallet popup to proceed. Please try again and approve the connection.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Connection Failed",
+          description:
+            error.message || "Failed to connect wallet. Please make sure your wallet is installed and try again.",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -313,14 +327,39 @@ export default function MintPTTBPage() {
                 <CardContent className="space-y-6">
                   {/* Wallet Connection */}
                   {!isConnected ? (
-                    <Button
-                      onClick={connectWallet}
-                      className="w-full bg-red-600 hover:bg-red-600/90 text-white font-semibold py-3 shadow-lg shadow-red-600/20"
-                      size="lg"
-                    >
-                      <Wallet className="w-5 h-5 mr-2" />
-                      Connect Wallet
-                    </Button>
+                    <div className="space-y-4">
+                      <Button
+                        onClick={connectWallet}
+                        className="w-full bg-red-600 hover:bg-red-600/90 text-white font-semibold py-3 shadow-lg shadow-red-600/20"
+                        size="lg"
+                      >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Connect Wallet
+                      </Button>
+                      {showConnectionGuide && (
+                        <Card className="bg-[#fdc730]/10 border-[#fdc730]/30">
+                          <CardContent className="p-4">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-2 h-2 bg-[#fdc730] rounded-full mt-2 animate-pulse" />
+                              <div>
+                                <p className="text-sm font-medium text-[#fdc730] mb-1">Wallet Connection in Progress</p>
+                                <p className="text-xs text-gray-300">
+                                  Please check your wallet popup and click <strong>"Connect"</strong> or{" "}
+                                  <strong>"Approve"</strong> to continue. Do not click "Cancel" or "Reject".
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      <div className="bg-green-900/20 border border-green-800/50 rounded-lg p-3">
+                        <p className="text-xs text-green-300 text-center">
+                          ✅ <strong>Wallet connection is working correctly!</strong>
+                          <br />
+                          When your wallet popup appears, click "Connect" to approve the connection.
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-4 bg-green-900/20 border border-green-800 rounded-lg">
                       <div className="flex items-center justify-between">

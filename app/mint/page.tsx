@@ -44,6 +44,7 @@ export default function MintPage() {
 
   const connectWallet = async () => {
     try {
+      console.log("[v0] Starting wallet connection process")
       const address = await web3Service.connectWallet()
       if (address) {
         setWalletAddress(address)
@@ -56,10 +57,25 @@ export default function MintPage() {
         throw new Error("Failed to connect wallet")
       }
     } catch (error: any) {
-      console.error("Wallet connection error:", error)
+      console.log("[v0] Wallet connection failed:", error)
+
+      let errorTitle = "Connection Failed"
+      let errorDescription = "Failed to connect wallet"
+
+      if (error.code === "ACTION_REJECTED" || error.code === 4001 || error.message?.includes("user rejected")) {
+        errorTitle = "Connection Rejected"
+        errorDescription =
+          "You rejected the wallet connection. Please click 'Connect' or 'Approve' when your wallet asks for permission."
+      } else if (error.message?.includes("MetaMask is not installed")) {
+        errorTitle = "Wallet Not Found"
+        errorDescription = "Please install MetaMask or use a wallet-enabled browser to connect."
+      } else {
+        errorDescription = error.message || "Failed to connect wallet. Please try again."
+      }
+
       toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect wallet",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       })
     }
@@ -226,14 +242,22 @@ export default function MintPage() {
                 <CardContent className="space-y-6">
                   {/* Wallet Connection */}
                   {!isConnected ? (
-                    <Button
-                      onClick={connectWallet}
-                      className="w-full bg-[#fdc730] hover:bg-[#fdc730]/90 text-black font-semibold py-3 shadow-lg shadow-[#fdc730]/20"
-                      size="lg"
-                    >
-                      <Wallet className="w-5 h-5 mr-2" />
-                      Connect Wallet
-                    </Button>
+                    <div className="space-y-3">
+                      <Button
+                        onClick={connectWallet}
+                        className="w-full bg-[#fdc730] hover:bg-[#fdc730]/90 text-black font-semibold py-3 shadow-lg shadow-[#fdc730]/20"
+                        size="lg"
+                      >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Connect Wallet
+                      </Button>
+                      <div className="p-3 bg-[#fdc730]/10 border border-[#fdc730]/30 rounded-lg">
+                        <p className="text-sm text-[#fdc730] text-center">
+                          💡 When your wallet popup appears, click <strong>"Connect"</strong> or{" "}
+                          <strong>"Approve"</strong> to proceed
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-4 bg-green-900/20 border border-green-800 rounded-lg">
                       <div className="flex items-center justify-between">
