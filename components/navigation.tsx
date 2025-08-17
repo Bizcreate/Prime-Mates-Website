@@ -14,6 +14,7 @@ export function Navigation() {
   const navItems = [
     { name: "Home", href: "#home" },
     { name: "NFTs", href: "/nfts" },
+    { name: "Mint", href: "/mint" }, // Added Mint link to navigation menu
     { name: "Games", href: "/games" },
     { name: "Prime Arcade", href: "/games" },
     { name: "Merch", href: "/merch" }, // Now points to the combined merch/store page

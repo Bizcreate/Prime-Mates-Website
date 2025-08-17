@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ExternalLink, Zap } from "lucide-react"
 import { useState } from "react"
+import Link from "next/link"
 
 export function NFTShowcase() {
   const [hoveredNFT, setHoveredNFT] = useState<number | null>(null)
@@ -49,13 +50,15 @@ export function NFTShowcase() {
             Own a piece of board culture history. Each Prime Mate NFT grants exclusive access to our metaverse, special
             events, and community perks.
           </p>
-          <Button
-            size="lg"
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 font-bold"
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            Mint Now
-          </Button>
+          <Link href="/mint">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 font-bold"
+            >
+              <Zap className="mr-2 h-5 w-5" />
+              Mint Now
+            </Button>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
