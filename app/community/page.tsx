@@ -32,6 +32,8 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log("[v0] Community page loading data...")
+
     // Mock data - replace with real API calls
     const mockLeaderboard: LeaderboardEntry[] = [
       {
@@ -122,11 +124,11 @@ export default function CommunityPage() {
       },
     ]
 
-    setTimeout(() => {
-      setLeaderboard(mockLeaderboard)
-      setActivity(mockActivity)
-      setLoading(false)
-    }, 1000)
+    console.log("[v0] Setting mock data...")
+    setLeaderboard(mockLeaderboard)
+    setActivity(mockActivity)
+    setLoading(false)
+    console.log("[v0] Data loaded successfully")
   }, [])
 
   const getTierColor = (tier: string) => {
@@ -228,12 +230,16 @@ export default function CommunityPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
                     <p className="text-gray-400 mt-2">Loading leaderboard...</p>
                   </div>
+                ) : leaderboard.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No leaderboard data available</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {leaderboard.map((entry) => (
                       <div
                         key={entry.rank}
-                        className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700"
+                        className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-yellow-400/50 transition-colors"
                       >
                         <div className="flex items-center gap-4">
                           <div className="text-2xl font-bold text-yellow-400 w-8">#{entry.rank}</div>
@@ -278,12 +284,16 @@ export default function CommunityPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
                     <p className="text-gray-400 mt-2">Loading activity...</p>
                   </div>
+                ) : activity.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No activity data available</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {activity.map((entry) => (
                       <div
                         key={entry.id}
-                        className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700"
+                        className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-yellow-400/50 transition-colors"
                       >
                         <div className="flex items-center gap-4">
                           <div className="text-2xl">{getActivityIcon(entry.type)}</div>
