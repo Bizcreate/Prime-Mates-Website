@@ -40,6 +40,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       status,
     })
 
+    // Check if product exists first
+    const existingProduct = await sql`
+      SELECT id FROM products WHERE id = ${Number.parseInt(params.id)}
+    `
+
+    if (existingProduct.length === 0) {
+      console.log("[v0] Product not found with ID:", params.id)
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+
+    console.log("[v0] Product exists, proceeding with update")
+
     const updatedProduct = await sql`
       UPDATE products 
       SET 
@@ -50,7 +62,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         sku = ${sku},
         inventory_quantity = ${Number.parseInt(inventory_quantity)},
         image_url = ${image_url},
-        sizes = ${JSON.stringify(sizes || [])},
+        sizes = ${sizes ? JSON.stringify(sizes) : "[]"},
         status = ${status},
         is_active = ${status === "published"},
         updated_at = NOW()
@@ -61,13 +73,23 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     console.log("[v0] Update result:", updatedProduct)
 
     if (updatedProduct.length === 0) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+      console.log("[v0] No rows updated")
+      return NextResponse.json({ error: "Product not found or no changes made" }, { status: 404 })
     }
 
+    console.log("[v0] Product updated successfully")
     return NextResponse.json(updatedProduct[0])
   } catch (error) {
     console.error("[v0] Error updating product:", error)
-    return NextResponse.json({ error: "Failed to update product", details: error.message }, { status: 500 })
+    console.error("[v0] Error stack:", error.stack)
+    return NextResponse.json(
+      {
+        error: "Failed to update product",
+        details: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
 
