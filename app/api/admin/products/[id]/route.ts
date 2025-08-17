@@ -23,20 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const {
-      name,
-      description,
-      price,
-      category,
-      sku,
-      inventory_quantity,
-      image_url,
-      sizes,
-      status,
-      visibility,
-      badge,
-      is_featured,
-    } = body
+    const { name, description, price, category, sku, inventory_quantity, image_url, sizes, status, is_featured } = body
 
     const updatedProduct = await sql`
       UPDATE products 
@@ -48,11 +35,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         sku = ${sku},
         inventory_quantity = ${inventory_quantity},
         image_url = ${image_url},
-        sizes = ${JSON.stringify(sizes)},
+        sizes = ${JSON.stringify(sizes || [])},
         status = ${status},
-        visibility = ${visibility || "public"},
-        badge = ${badge || "none"},
-        is_featured = ${is_featured || false},
+        is_active = ${status === "active"},
         updated_at = NOW()
       WHERE id = ${params.id}
       RETURNING *
