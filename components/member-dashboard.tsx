@@ -49,11 +49,7 @@ export function MemberDashboard() {
       setLoading(true)
       console.log("[v0] Starting wallet connection...")
 
-      if (typeof window.ethereum === "undefined") {
-        throw new Error("MetaMask is not installed. Please install MetaMask to continue.")
-      }
-
-      console.log("[v0] MetaMask detected, calling web3Service.connectWallet...")
+      console.log("[v0] Calling web3Service.connectWallet...")
       const address = await web3Service.connectWallet()
       console.log("[v0] Wallet connected successfully:", address)
 
