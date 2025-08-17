@@ -40,9 +40,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       status,
     })
 
-    // Check if product exists first
     const existingProduct = await sql`
-      SELECT id FROM products WHERE id = ${Number.parseInt(params.id)}
+      SELECT id FROM products WHERE id = ${params.id}
     `
 
     if (existingProduct.length === 0) {
@@ -55,18 +54,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const updatedProduct = await sql`
       UPDATE products 
       SET 
-        name = ${name},
-        description = ${description},
-        price = ${Number.parseFloat(price)},
-        category = ${category},
-        sku = ${sku},
-        inventory_quantity = ${Number.parseInt(inventory_quantity)},
-        image_url = ${image_url},
-        sizes = ${sizes ? JSON.stringify(sizes) : "[]"},
-        status = ${status},
+        name = ${name || ""},
+        description = ${description || ""},
+        price = ${price ? Number.parseFloat(price) : 0},
+        category = ${category || ""},
+        sku = ${sku || ""},
+        inventory_quantity = ${inventory_quantity ? Number.parseInt(inventory_quantity) : 0},
+        image_url = ${image_url || ""},
+        sizes = ${sizes ? JSON.stringify(sizes) : "[]"}::jsonb,
+        status = ${status || "draft"},
         is_active = ${status === "published"},
         updated_at = NOW()
-      WHERE id = ${Number.parseInt(params.id)}
+      WHERE id = ${params.id}
       RETURNING *
     `
 
