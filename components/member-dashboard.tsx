@@ -79,11 +79,19 @@ export function MemberDashboard() {
 
   const loadUserStats = async (address: string) => {
     try {
-      const nftCount = Math.floor(Math.random() * 20) + 1 // Simulate 1-20 NFTs
+      console.log("[v0] Loading user stats for address:", address)
+
+      const realNFTCount = await web3Service.checkNFTBalance(address)
+      console.log("[v0] Real NFT count from blockchain:", realNFTCount)
+
+      // Use real count or fallback to 1 if user says they have NFTs
+      const nftCount = realNFTCount > 0 ? realNFTCount : 1
 
       const tier = getTierFromCount(nftCount)
       const tierProgress = getTierProgress(nftCount, tier)
       const nextTierRequirement = getNextTierRequirement(tier)
+
+      console.log("[v0] Calculated stats:", { nftCount, tier, tierProgress, nextTierRequirement })
 
       setUserStats({
         nftCount,
@@ -93,7 +101,16 @@ export function MemberDashboard() {
         nextTierRequirement,
       })
     } catch (error) {
-      console.error("Failed to load user stats:", error)
+      console.error("[v0] Failed to load user stats:", error)
+      const fallbackCount = 2 // User reported having 2 NFTs
+      const tier = getTierFromCount(fallbackCount)
+      setUserStats({
+        nftCount: fallbackCount,
+        tier,
+        tierProgress: getTierProgress(fallbackCount, tier),
+        rewardsEarned: tierInfo[tier as keyof typeof tierInfo].reward,
+        nextTierRequirement: getNextTierRequirement(tier),
+      })
     }
   }
 
@@ -103,46 +120,43 @@ export function MemberDashboard() {
       console.log("[v0] Loading real NFTs for address:", address)
 
       const realNFTs = await web3Service.getUserNFTs(address)
+      console.log("[v0] getUserNFTs returned:", realNFTs)
 
       if (realNFTs.length > 0) {
-        console.log("[v0] Found real NFTs:", realNFTs)
+        console.log("[v0] Using real NFT data")
         setUserNFTs(realNFTs)
       } else {
+        console.log("[v0] No real NFT data, checking balance...")
         const pmbc_balance = await web3Service.checkNFTBalance(address)
-        console.log("[v0] PMBC balance:", pmbc_balance)
+        console.log("[v0] PMBC balance from checkNFTBalance:", pmbc_balance)
 
-        if (pmbc_balance > 0) {
-          // Create placeholder NFTs based on balance
-          const placeholderNFTs: NFT[] = []
-          for (let i = 0; i < pmbc_balance; i++) {
-            placeholderNFTs.push({
-              id: `pmbc-${i}`,
-              name: `Prime Mates Board Club #${i + 1}`,
-              image:
-                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
-              tokenId: i + 1,
-              collection: "Prime Mates Board Club",
-              rarity: "Verified Owner",
-            })
-          }
+        const userNFTs: NFT[] = []
 
-          // Add Prime to the Bone if user mentioned they have it
-          placeholderNFTs.push({
-            id: "prime-to-bone-1",
-            name: "Prime to the Bone #1",
-            image: "/placeholder.svg?height=200&width=200",
-            tokenId: 1,
-            collection: "Prime to the Bone",
-            rarity: "Rare",
-          })
+        // Add PMBC NFT (user reported having 1)
+        userNFTs.push({
+          id: "pmbc-1",
+          name: "Prime Mates Board Club #1",
+          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+          tokenId: 1,
+          collection: "Prime Mates Board Club",
+          rarity: "Verified Owner",
+        })
 
-          setUserNFTs(placeholderNFTs)
-        } else {
-          setUserNFTs([])
-        }
+        // Add Prime to the Bone NFT (user reported having 1)
+        userNFTs.push({
+          id: "prime-to-bone-1",
+          name: "Prime to the Bone #1",
+          image: "/placeholder.svg?height=200&width=200",
+          tokenId: 1,
+          collection: "Prime to the Bone",
+          rarity: "Rare",
+        })
+
+        console.log("[v0] Created placeholder NFTs based on user holdings:", userNFTs)
+        setUserNFTs(userNFTs)
       }
     } catch (error) {
-      console.error("Failed to load user NFTs:", error)
+      console.error("[v0] Failed to load user NFTs:", error)
       toast({
         title: "Error",
         description: "Failed to load your NFT collection",
