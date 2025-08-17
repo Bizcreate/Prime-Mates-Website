@@ -20,6 +20,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log("[v0] Creating product with data:", body)
+
     const {
       name,
       description,
@@ -31,28 +33,26 @@ export async function POST(request: NextRequest) {
       sizes,
       weight,
       status = "draft",
-      visibility = "public",
-      badge = "",
-      featured = false,
     } = body
 
     const [product] = await sql`
       INSERT INTO products (
         name, description, price, category, sku, 
         inventory_quantity, image_url, sizes, weight, 
-        status, visibility, badge, featured, created_at, updated_at
+        status, is_active, created_at, updated_at
       )
       VALUES (
-        ${name}, ${description}, ${price}, ${category}, ${sku},
-        ${inventory_quantity}, ${image_url}, ${JSON.stringify(sizes)}, ${weight},
-        ${status}, ${visibility}, ${badge}, ${featured}, NOW(), NOW()
+        ${name}, ${description}, ${Number.parseFloat(price) || 0}, ${category}, ${sku || `PM-${Date.now()}`},
+        ${Number.parseInt(inventory_quantity) || 0}, ${image_url}, ${JSON.stringify(sizes || [])}, ${Number.parseFloat(weight) || 0},
+        ${status}, ${status === "published"}, NOW(), NOW()
       )
       RETURNING *
     `
 
+    console.log("[v0] Product created successfully:", product)
     return NextResponse.json(product)
   } catch (error) {
-    console.error("Error creating product:", error)
+    console.error("[v0] Error creating product:", error)
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
   }
 }
