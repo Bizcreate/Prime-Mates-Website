@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink } from "lucide-react"
-import { Web3Service } from "@/lib/web3"
+import { web3Service } from "@/lib/web3"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
 
@@ -42,8 +42,8 @@ export function MemberDashboard() {
         throw new Error("MetaMask is not installed. Please install MetaMask to continue.")
       }
 
-      console.log("[v0] MetaMask detected, calling Web3Service.connectWallet...")
-      const address = await Web3Service.connectWallet()
+      console.log("[v0] MetaMask detected, calling web3Service.connectWallet...")
+      const address = await web3Service.connectWallet()
       console.log("[v0] Wallet connected successfully:", address)
 
       setWalletAddress(address)
