@@ -15,7 +15,7 @@ export function Games() {
         "Ride. Build. Own. Enter the ultimate board sports metaverse — skate, surf, and snow your way through an open world where you can own land, create your lifestyle, and grow a career. Powered by NFTs and tokens, your journey is truly yours.",
       image: "/images/prime-city.jpg",
       features: ["Open World", "Land Ownership", "NFT Integration", "Career Mode", "Virtual Economy"],
-      releaseDate: "2024 Q4",
+      releaseDate: "2025 Q4",
       gameUrl: null, // Beta waitlist only
     },
     {

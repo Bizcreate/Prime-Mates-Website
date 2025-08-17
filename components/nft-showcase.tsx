@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ExternalLink, Zap } from "lucide-react"
+import { ExternalLink, Zap, Skull } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
 
@@ -50,15 +50,26 @@ export function NFTShowcase() {
             Own a piece of board culture history. Each Prime Mate NFT grants exclusive access to our metaverse, special
             events, and community perks.
           </p>
-          <Link href="/mint">
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 font-bold"
-            >
-              <Zap className="mr-2 h-5 w-5" />
-              Mint Now
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href="/mint">
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-[#fdc730] to-yellow-500 hover:from-[#fdc730]/90 hover:to-yellow-500/90 text-black font-bold"
+              >
+                <Zap className="mr-2 h-5 w-5" />
+                Mint PMBC
+              </Button>
+            </Link>
+            <Link href="/mint-pttb">
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-600/90 hover:to-red-500/90 text-white font-bold"
+              >
+                <Skull className="mr-2 h-5 w-5" />
+                Mint PTTB
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">

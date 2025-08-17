@@ -309,6 +309,27 @@ export function MemberDashboard() {
               </Card>
             )}
 
+            <Card className="bg-yellow-900/20 border-yellow-400/40 mb-6">
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <h3 className="text-yellow-400 font-bold text-lg mb-3">🔗 How to Connect Your Wallet</h3>
+                  <div className="space-y-2 text-sm text-yellow-200">
+                    <p>1. Click "Connect Wallet" below</p>
+                    <p>2. Choose your wallet from the options</p>
+                    <p>
+                      3. When your wallet popup appears, click <strong>"Connect"</strong> or <strong>"Approve"</strong>
+                    </p>
+                    <p className="text-red-300 font-semibold">⚠️ Do NOT click "Cancel" or "Reject"</p>
+                  </div>
+                  <div className="mt-4 p-3 bg-green-900/30 border border-green-400/30 rounded-lg">
+                    <p className="text-green-300 text-xs">
+                      ✅ Your wallet IS opening correctly - you just need to approve the connection!
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Button
               onClick={connectWallet}
               disabled={loading}
