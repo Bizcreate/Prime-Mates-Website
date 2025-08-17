@@ -28,7 +28,7 @@ export function Merch() {
     try {
       const response = await fetch("/api/products")
       const data = await response.json()
-      setProducts(data.filter((product: Product) => product.status === "active"))
+      setProducts(data.filter((product: Product) => product.status === "active" || product.status === "featured"))
     } catch (error) {
       setProducts([]) // Fallback to empty array
     } finally {
@@ -53,14 +53,15 @@ export function Merch() {
 
   const categories = ["all", ...Array.from(new Set(products.map((p) => p.category)))]
 
-  const getBadgeColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getBadgeColor = (badge: string) => {
+    switch (badge?.toLowerCase()) {
       case "bestseller":
       case "best seller":
         return "bg-yellow-600"
       case "new":
         return "bg-green-600"
       case "limited":
+      case "limited edition":
         return "bg-red-600"
       case "popular":
         return "bg-blue-600"
@@ -156,12 +157,14 @@ export function Merch() {
                   className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute top-3 left-3">
-                  <Badge
-                    variant="secondary"
-                    className={`text-xs font-bold ${getBadgeColor(product.status)} text-white`}
-                  >
-                    {product.status || "New"}
-                  </Badge>
+                  {product.badge && (
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs font-bold ${getBadgeColor(product.badge)} text-white`}
+                    >
+                      {product.badge}
+                    </Badge>
+                  )}
                 </div>
                 <div className="absolute top-3 right-3">
                   <Badge variant="outline" className="border-yellow-400 text-yellow-400 bg-black/50 text-xs">

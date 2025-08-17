@@ -22,12 +22,15 @@ export default function NewProductPage() {
     name: "",
     description: "",
     price: "",
-    category: "",
+    category: "t-shirts", // Default to a non-empty string
     sku: "",
     inventory_quantity: "",
     sizes: "",
-    status: "active",
+    status: "draft", // Default to draft instead of active
     image_url: "",
+    visibility: "public",
+    badge: "none",
+    featured: false,
   })
 
   useEffect(() => {
@@ -59,6 +62,7 @@ export default function NewProductPage() {
           inventory_quantity: Number.parseInt(formData.inventory_quantity),
           sizes: sizesArray,
           weight: 0, // Default weight
+          is_active: formData.status === "active",
         }),
       })
 
@@ -72,12 +76,15 @@ export default function NewProductPage() {
           name: "",
           description: "",
           price: "",
-          category: "",
+          category: "t-shirts", // Reset to default non-empty string
           sku: "",
           inventory_quantity: "",
           sizes: "",
-          status: "active",
+          status: "draft",
           image_url: "",
+          visibility: "public",
+          badge: "none",
+          featured: false,
         })
       } else {
         throw new Error("Failed to create product")
@@ -197,6 +204,26 @@ export default function NewProductPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label htmlFor="badge" className="text-gray-300">
+                    Product Badge (Optional)
+                  </Label>
+                  <Select value={formData.badge} onValueChange={(value) => setFormData({ ...formData, badge: value })}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue placeholder="Select badge" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Badge</SelectItem>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="bestseller">Bestseller</SelectItem>
+                      <SelectItem value="limited">Limited Edition</SelectItem>
+                      <SelectItem value="exclusive">Exclusive</SelectItem>
+                      <SelectItem value="popular">Popular</SelectItem>
+                      <SelectItem value="fan favorite">Fan Favorite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
 
@@ -253,25 +280,61 @@ export default function NewProductPage() {
           <div className="space-y-6">
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
-                <CardTitle className="text-white">Product Status</CardTitle>
+                <CardTitle className="text-white">Publishing</CardTitle>
               </CardHeader>
-              <CardContent>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-gray-300">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="active">Published</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-gray-300">Visibility</Label>
+                  <Select
+                    value={formData.visibility}
+                    onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+                  >
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="members">Members Only</SelectItem>
+                      <SelectItem value="nft_holders">NFT Holders Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="featured"
+                    checked={formData.featured}
+                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                    className="rounded border-gray-600 bg-gray-700"
+                  />
+                  <Label htmlFor="featured" className="text-gray-300">
+                    Featured Product
+                  </Label>
+                </div>
               </CardContent>
             </Card>
 
             <div className="space-y-2">
               <Button type="submit" className="w-full bg-[#fdc730] hover:bg-yellow-400 text-black" disabled={loading}>
-                {loading ? "Creating..." : "Save Product"}
+                {loading ? "Creating..." : formData.status === "active" ? "Publish Product" : "Save Product"}
               </Button>
               <Button
                 type="button"

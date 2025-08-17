@@ -7,7 +7,6 @@ export async function GET() {
   try {
     const products = await sql`
       SELECT * FROM products 
-      WHERE is_active = true 
       ORDER BY created_at DESC
     `
 
@@ -31,20 +30,22 @@ export async function POST(request: NextRequest) {
       image_url,
       sizes,
       weight,
-      is_active = true,
-      status = "active",
+      status = "draft",
+      visibility = "public",
+      badge = "",
+      featured = false,
     } = body
 
     const [product] = await sql`
       INSERT INTO products (
         name, description, price, category, sku, 
         inventory_quantity, image_url, sizes, weight, 
-        is_active, status, created_at, updated_at
+        status, visibility, badge, featured, created_at, updated_at
       )
       VALUES (
         ${name}, ${description}, ${price}, ${category}, ${sku},
         ${inventory_quantity}, ${image_url}, ${JSON.stringify(sizes)}, ${weight},
-        ${is_active}, ${status}, NOW(), NOW()
+        ${status}, ${visibility}, ${badge}, ${featured}, NOW(), NOW()
       )
       RETURNING *
     `
@@ -53,5 +54,23 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating product:", error)
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "Product ID is required" }, { status: 400 })
+    }
+
+    await sql`DELETE FROM products WHERE id = ${id}`
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting product:", error)
+    return NextResponse.json({ error: "Failed to delete product" }, { status: 500 })
   }
 }
