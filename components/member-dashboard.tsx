@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink, ImageIcon } from "lucide-react"
+import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink, ImageIcon, AlertCircle } from "lucide-react"
 import { web3Service } from "@/lib/web3"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
@@ -43,10 +43,12 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(false)
   const [userNFTs, setUserNFTs] = useState<NFT[]>([])
   const [loadingNFTs, setLoadingNFTs] = useState(false)
+  const [showConnectionGuide, setShowConnectionGuide] = useState(false)
 
   const connectWallet = async () => {
     try {
       setLoading(true)
+      setShowConnectionGuide(true)
       console.log("[v0] Starting wallet connection...")
 
       console.log("[v0] Calling web3Service.connectWallet...")
@@ -55,6 +57,7 @@ export function MemberDashboard() {
 
       setWalletAddress(address)
       setIsConnected(true)
+      setShowConnectionGuide(false)
       await loadUserStats(address)
       await loadUserNFTs(address)
       toast({
@@ -63,9 +66,22 @@ export function MemberDashboard() {
       })
     } catch (error) {
       console.error("[v0] Wallet connection failed:", error)
+      setShowConnectionGuide(false)
+
+      let errorMessage = "Failed to connect wallet. Please try again."
+      if (error instanceof Error) {
+        if (error.message.includes("rejected") || error.message.includes("denied")) {
+          errorMessage = "Connection was rejected. Please click 'Connect' in your wallet popup to proceed."
+        } else if (error.message.includes("not installed")) {
+          errorMessage = "MetaMask is not installed. Please install MetaMask or open this page in your wallet app."
+        } else {
+          errorMessage = error.message
+        }
+      }
+
       toast({
         title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to connect wallet. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -227,6 +243,22 @@ export function MemberDashboard() {
             <p className="text-xl text-gray-300 mb-8">
               Connect your wallet to access exclusive member benefits and track your PMBC tier status
             </p>
+
+            {showConnectionGuide && (
+              <Card className="bg-blue-900/20 border-blue-400/40 mb-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <AlertCircle className="h-5 w-5 text-blue-400 mr-2" />
+                    <span className="text-blue-400 font-semibold">Wallet Connection Guide</span>
+                  </div>
+                  <p className="text-sm text-blue-200">
+                    A popup should appear from your wallet. Please click "Connect" or "Approve" to proceed. If no popup
+                    appears, check if your wallet is unlocked.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             <Button
               onClick={connectWallet}
               disabled={loading}
@@ -235,6 +267,11 @@ export function MemberDashboard() {
               <Wallet className="mr-2 h-5 w-5" />
               {loading ? "Connecting..." : "Connect Wallet"}
             </Button>
+
+            <div className="mt-6 text-sm text-gray-400">
+              <p>Make sure your wallet is unlocked and ready to connect</p>
+              <p className="mt-1">On mobile, open this page in your wallet app's browser</p>
+            </div>
           </div>
         </div>
       </div>
