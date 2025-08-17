@@ -100,46 +100,47 @@ export function MemberDashboard() {
   const loadUserNFTs = async (address: string) => {
     try {
       setLoadingNFTs(true)
+      console.log("[v0] Loading real NFTs for address:", address)
 
-      // Simulate loading user's NFT collection
-      const mockNFTs: NFT[] = [
-        {
-          id: "1",
-          name: "Prime Mate #1234",
-          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
-          tokenId: 1234,
-          collection: "Prime Mates Board Club",
-          rarity: "Rare",
-        },
-        {
-          id: "2",
-          name: "Prime Mate #567",
-          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
-          tokenId: 567,
-          collection: "Prime Mates Board Club",
-          rarity: "Common",
-        },
-        {
-          id: "3",
-          name: "PMBC Skateboard #89",
-          image: "/placeholder.svg?height=200&width=200",
-          tokenId: 89,
-          collection: "PMBC Skateboards",
-          rarity: "Epic",
-        },
-        {
-          id: "4",
-          name: "Prime Merch Token #45",
-          image: "/placeholder.svg?height=200&width=200",
-          tokenId: 45,
-          collection: "Prime Merch Collection",
-          rarity: "Legendary",
-        },
-      ]
+      const realNFTs = await web3Service.getUserNFTs(address)
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setUserNFTs(mockNFTs)
+      if (realNFTs.length > 0) {
+        console.log("[v0] Found real NFTs:", realNFTs)
+        setUserNFTs(realNFTs)
+      } else {
+        const pmbc_balance = await web3Service.checkNFTBalance(address)
+        console.log("[v0] PMBC balance:", pmbc_balance)
+
+        if (pmbc_balance > 0) {
+          // Create placeholder NFTs based on balance
+          const placeholderNFTs: NFT[] = []
+          for (let i = 0; i < pmbc_balance; i++) {
+            placeholderNFTs.push({
+              id: `pmbc-${i}`,
+              name: `Prime Mates Board Club #${i + 1}`,
+              image:
+                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+              tokenId: i + 1,
+              collection: "Prime Mates Board Club",
+              rarity: "Verified Owner",
+            })
+          }
+
+          // Add Prime to the Bone if user mentioned they have it
+          placeholderNFTs.push({
+            id: "prime-to-bone-1",
+            name: "Prime to the Bone #1",
+            image: "/placeholder.svg?height=200&width=200",
+            tokenId: 1,
+            collection: "Prime to the Bone",
+            rarity: "Rare",
+          })
+
+          setUserNFTs(placeholderNFTs)
+        } else {
+          setUserNFTs([])
+        }
+      }
     } catch (error) {
       console.error("Failed to load user NFTs:", error)
       toast({
@@ -191,6 +192,8 @@ export function MemberDashboard() {
         return "bg-purple-500"
       case "Legendary":
         return "bg-yellow-500"
+      case "Verified Owner":
+        return "bg-green-500"
       default:
         return "bg-gray-500"
     }

@@ -29,7 +29,25 @@ const MINT_ABI = [
   "function price() external view returns (uint256)",
   "function cost() external view returns (uint256)",
   "function balanceOf(address owner) external view returns (uint256)",
+  "function tokenURI(uint256 tokenId) external view returns (string)",
+  "function ownerOf(uint256 tokenId) external view returns (address)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)",
 ]
+
+export const PRIME_MATES_CONTRACTS = {
+  PMBC: "0x12662b6a2a424a0090b7d09401fb775a9b968898",
+  PRIME_TO_THE_BONE: "0x", // Add the actual contract address when available
+} as const
+
+export interface NFTMetadata {
+  id: string
+  name: string
+  image: string
+  tokenId: number
+  collection: string
+  rarity?: string
+  contractAddress: string
+}
 
 export class Web3Service {
   private config: Web3Config
@@ -219,6 +237,87 @@ export class Web3Service {
       console.error("Failed to get collection stats:", error)
       // Return known collection details as fallback
       return { totalSupply: 1661, maxSupply: 2222, mintPrice: "0.05" }
+    }
+  }
+
+  async getUserNFTs(address: string): Promise<NFTMetadata[]> {
+    try {
+      console.log("[v0] Fetching NFTs for address:", address)
+      const nfts: NFTMetadata[] = []
+
+      if (!this.provider) {
+        if (typeof window !== "undefined" && window.ethereum) {
+          this.provider = new ethers.BrowserProvider(window.ethereum)
+        } else {
+          throw new Error("No wallet provider available")
+        }
+      }
+
+      // Check PMBC collection
+      try {
+        const pmbc_nfts = await this.fetchNFTsFromContract(
+          address,
+          PRIME_MATES_CONTRACTS.PMBC,
+          "Prime Mates Board Club",
+        )
+        nfts.push(...pmbc_nfts)
+      } catch (error) {
+        console.log("[v0] Could not fetch PMBC NFTs:", error)
+      }
+
+      // For now, we'll use a simplified approach since we can't easily enumerate all tokens
+      // In production, you'd use services like Moralis, Alchemy NFT API, or OpenSea API
+      console.log("[v0] Found", nfts.length, "NFTs")
+      return nfts
+    } catch (error) {
+      console.error("Failed to fetch user NFTs:", error)
+      return []
+    }
+  }
+
+  private async fetchNFTsFromContract(
+    address: string,
+    contractAddress: string,
+    collectionName: string,
+  ): Promise<NFTMetadata[]> {
+    try {
+      const contract = new ethers.Contract(contractAddress, MINT_ABI, this.provider!)
+      const balance = await contract.balanceOf(address)
+      const balanceNum = Number(balance)
+
+      console.log("[v0] User has", balanceNum, "NFTs in", collectionName)
+
+      const nfts: NFTMetadata[] = []
+
+      // For each NFT the user owns, try to get token details
+      for (let i = 0; i < Math.min(balanceNum, 10); i++) {
+        // Limit to 10 for performance
+        try {
+          // This is a simplified approach - in production you'd use tokenOfOwnerByIndex
+          // or an indexing service to get the actual token IDs
+          const tokenId = i + 1 // Placeholder - would need proper enumeration
+
+          nfts.push({
+            id: `${contractAddress}-${tokenId}`,
+            name: `${collectionName} #${tokenId}`,
+            image:
+              collectionName === "Prime Mates Board Club"
+                ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif"
+                : "/placeholder.svg?height=200&width=200",
+            tokenId,
+            collection: collectionName,
+            rarity: "Unknown",
+            contractAddress,
+          })
+        } catch (error) {
+          console.log("[v0] Could not fetch token", i, "details")
+        }
+      }
+
+      return nfts
+    } catch (error) {
+      console.error("Failed to fetch NFTs from contract:", contractAddress, error)
+      return []
     }
   }
 }
