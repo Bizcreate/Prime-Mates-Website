@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink } from "lucide-react"
+import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink, ImageIcon } from "lucide-react"
 import { web3Service } from "@/lib/web3"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
@@ -17,6 +17,15 @@ interface UserStats {
   tierProgress: number
   rewardsEarned: number
   nextTierRequirement: number
+}
+
+interface NFT {
+  id: string
+  name: string
+  image: string
+  tokenId: number
+  collection: string
+  rarity?: string
 }
 
 const tierInfo = {
@@ -32,6 +41,8 @@ export function MemberDashboard() {
   const [walletAddress, setWalletAddress] = useState("")
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(false)
+  const [userNFTs, setUserNFTs] = useState<NFT[]>([])
+  const [loadingNFTs, setLoadingNFTs] = useState(false)
 
   const connectWallet = async () => {
     try {
@@ -49,6 +60,7 @@ export function MemberDashboard() {
       setWalletAddress(address)
       setIsConnected(true)
       await loadUserStats(address)
+      await loadUserNFTs(address)
       toast({
         title: "Wallet Connected",
         description: "Successfully connected to your wallet",
@@ -85,6 +97,61 @@ export function MemberDashboard() {
     }
   }
 
+  const loadUserNFTs = async (address: string) => {
+    try {
+      setLoadingNFTs(true)
+
+      // Simulate loading user's NFT collection
+      const mockNFTs: NFT[] = [
+        {
+          id: "1",
+          name: "Prime Mate #1234",
+          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+          tokenId: 1234,
+          collection: "Prime Mates Board Club",
+          rarity: "Rare",
+        },
+        {
+          id: "2",
+          name: "Prime Mate #567",
+          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+          tokenId: 567,
+          collection: "Prime Mates Board Club",
+          rarity: "Common",
+        },
+        {
+          id: "3",
+          name: "PMBC Skateboard #89",
+          image: "/placeholder.svg?height=200&width=200",
+          tokenId: 89,
+          collection: "PMBC Skateboards",
+          rarity: "Epic",
+        },
+        {
+          id: "4",
+          name: "Prime Merch Token #45",
+          image: "/placeholder.svg?height=200&width=200",
+          tokenId: 45,
+          collection: "Prime Merch Collection",
+          rarity: "Legendary",
+        },
+      ]
+
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      setUserNFTs(mockNFTs)
+    } catch (error) {
+      console.error("Failed to load user NFTs:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load your NFT collection",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingNFTs(false)
+    }
+  }
+
   const getTierFromCount = (count: number): string => {
     if (count >= 16) return "Champion"
     if (count >= 10) return "Pro"
@@ -111,6 +178,21 @@ export function MemberDashboard() {
         return 16
       default:
         return 0
+    }
+  }
+
+  const getRarityColor = (rarity?: string) => {
+    switch (rarity) {
+      case "Common":
+        return "bg-gray-500"
+      case "Rare":
+        return "bg-blue-500"
+      case "Epic":
+        return "bg-purple-500"
+      case "Legendary":
+        return "bg-yellow-500"
+      default:
+        return "bg-gray-500"
     }
   }
 
@@ -215,8 +297,14 @@ export function MemberDashboard() {
               </Card>
             </div>
 
-            <Tabs defaultValue="benefits" className="space-y-6">
+            <Tabs defaultValue="collection" className="space-y-6">
               <TabsList className="bg-gray-900 border border-yellow-400/20">
+                <TabsTrigger
+                  value="collection"
+                  className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black"
+                >
+                  My Collection
+                </TabsTrigger>
                 <TabsTrigger
                   value="benefits"
                   className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black"
@@ -237,6 +325,104 @@ export function MemberDashboard() {
                 </TabsTrigger>
               </TabsList>
 
+              <TabsContent value="collection" className="space-y-6">
+                <Card className="bg-gray-900 border-yellow-400/20">
+                  <CardHeader>
+                    <CardTitle className="text-yellow-400 flex items-center">
+                      <ImageIcon className="mr-2 h-5 w-5" />
+                      Your Prime Mates Ecosystem Collection
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingNFTs ? (
+                      <div className="text-center py-8">
+                        <div className="text-gray-400">Loading your collection...</div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {userNFTs.map((nft) => (
+                          <Card
+                            key={nft.id}
+                            className="bg-gray-800 border-gray-700 hover:border-yellow-400/40 transition-colors"
+                          >
+                            <CardContent className="p-4">
+                              <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gray-700">
+                                <Image
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  width={200}
+                                  height={200}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <h3 className="font-semibold text-white truncate">{nft.name}</h3>
+                                <p className="text-sm text-gray-400">{nft.collection}</p>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">#{nft.tokenId}</span>
+                                  {nft.rarity && (
+                                    <Badge className={`${getRarityColor(nft.rarity)} text-white text-xs`}>
+                                      {nft.rarity}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+
+                    {userNFTs.length === 0 && !loadingNFTs && (
+                      <div className="text-center py-8">
+                        <ImageIcon className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                        <p className="text-gray-400">No NFTs found in your wallet</p>
+                        <p className="text-sm text-gray-500 mt-2">Make sure you're connected to the correct wallet</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="bg-gray-900 border-yellow-400/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-yellow-400">PMBC Collection</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {userNFTs.filter((nft) => nft.collection === "Prime Mates Board Club").length}
+                      </div>
+                      <p className="text-xs text-gray-400">Main Collection NFTs</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gray-900 border-yellow-400/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-yellow-400">Skateboards</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {userNFTs.filter((nft) => nft.collection === "PMBC Skateboards").length}
+                      </div>
+                      <p className="text-xs text-gray-400">Skateboard NFTs</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gray-900 border-yellow-400/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-yellow-400">Merch Tokens</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-white">
+                        {userNFTs.filter((nft) => nft.collection === "Prime Merch Collection").length}
+                      </div>
+                      <p className="text-xs text-gray-400">Exclusive Merch</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Benefits Tab */}
               <TabsContent value="benefits" className="space-y-6">
                 {/* Tier Progress */}
                 <Card className="bg-gray-900 border-yellow-400/20">
@@ -292,6 +478,7 @@ export function MemberDashboard() {
                 </div>
               </TabsContent>
 
+              {/* Rewards Tab */}
               <TabsContent value="rewards" className="space-y-6">
                 <Card className="bg-gray-900 border-yellow-400/20">
                   <CardHeader>
@@ -319,6 +506,7 @@ export function MemberDashboard() {
                 </Card>
               </TabsContent>
 
+              {/* Exclusive Access Tab */}
               <TabsContent value="exclusive" className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card className="bg-gray-900 border-yellow-400/20">
