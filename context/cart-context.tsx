@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import type { Product } from "@/app/admin/products/actions"
+import type { Product } from "@/lib/db"
 
 interface CartItem {
   id: string
@@ -9,6 +9,7 @@ interface CartItem {
   price: number
   imageUrl: string | null
   quantity: number
+  sku?: string
 }
 
 interface CartContextType {
@@ -47,7 +48,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         return [
           ...prevCart,
-          { id: product.id, name: product.name, price: product.price, imageUrl: product.image_url, quantity: 1 },
+          {
+            id: product.id,
+            name: product.name,
+            price: Number(product.price),
+            imageUrl: product.image_url,
+            quantity: 1,
+            sku: product.sku,
+          },
         ]
       }
     })

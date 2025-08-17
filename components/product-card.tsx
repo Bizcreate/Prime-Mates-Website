@@ -35,7 +35,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <CardTitle className="text-lg font-semibold">{product.name}</CardTitle>
           {product.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{product.description}</p>}
         </div>
-        <p className="text-xl font-bold mt-2">${product.price.toFixed(2)}</p>
+        <p className="text-xl font-bold mt-2">${Number(product.price || 0).toFixed(2)}</p>
       </CardContent>
       <CardFooter className="p-4 pt-0">
         <Button

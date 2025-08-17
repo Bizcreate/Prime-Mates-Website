@@ -21,7 +21,6 @@ export function Navigation() {
     { name: "About", href: "#about" },
     { name: "Community", href: "#community" },
     { name: "Contact", href: "#contact" },
-    { name: "Admin Products", href: "/admin/products" }, // Link to admin product management
   ]
 
   return (

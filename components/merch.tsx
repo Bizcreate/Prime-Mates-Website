@@ -4,126 +4,83 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, Heart, Star, Shirt, Palette, Crown } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useCart } from "@/context/cart-context"
+import type { Product } from "@/lib/db"
 
 export function Merch() {
-  const [favorites, setFavorites] = useState<number[]>([])
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const { addToCart } = useCart()
 
-  const products = [
-    {
-      id: 1,
-      name: "Prime Mates Classic Thrasher Tee",
-      price: "$35",
-      originalPrice: null,
-      image: "/images/prime-mates-thrasher-tee.png",
-      rating: 4.8,
-      reviews: 124,
-      badge: "Best Seller",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description: "Clean and minimal Prime Mates tee with classic white logo on premium black cotton.",
-      category: "T-Shirts",
-    },
-    {
-      id: 2,
-      name: "Watch Your Step Sweatshirt",
-      price: "$65",
-      originalPrice: "$80",
-      image: "/images/watch-your-step-sweatshirt.png",
-      rating: 4.9,
-      reviews: 89,
-      badge: "Limited",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description:
-        "Skateboard safety meets style with this unique 'Caution Watch Your Step' design featuring our signature banana and shaka.",
-      category: "Sweatshirts",
-    },
-    {
-      id: 3,
-      name: "Prime Mates Shaka Hoodie",
-      price: "$75",
-      originalPrice: null,
-      image: "/images/prime-mates-shaka-hoodie.avif",
-      rating: 4.7,
-      reviews: 156,
-      badge: "New",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description:
-        "Premium black hoodie featuring the iconic Prime Mates shaka design. Perfect for those chilly skate sessions.",
-      category: "Hoodies",
-    },
-    {
-      id: 4,
-      name: "Prime Mates Crew Neck",
-      price: "$55",
-      originalPrice: null,
-      image: "/images/prime-mates-crew-neck.avif",
-      rating: 4.6,
-      reviews: 67,
-      badge: "Popular",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description: "Classic crew neck sweatshirt with subtle Prime Mates branding. Comfort meets street style.",
-      category: "Sweatshirts",
-    },
-    {
-      id: 5,
-      name: "Prime Mates Snapback Cap",
-      price: "$45",
-      originalPrice: null,
-      image: "/images/prime-mates-snapback-cap.avif",
-      rating: 4.8,
-      reviews: 203,
-      badge: "Best Seller",
-      sizes: ["One Size"],
-      description:
-        "Classic black snapback with embroidered Prime Mates logo. Essential headwear for any board enthusiast.",
-      category: "Headwear",
-    },
-    {
-      id: 6,
-      name: "PMBC Forest Snapback",
-      price: "$45",
-      originalPrice: null,
-      image: "/images/pmbc-snapback-green.png",
-      rating: 4.5,
-      reviews: 78,
-      badge: "Exclusive",
-      sizes: ["One Size"],
-      description:
-        "Forest green snapback with bold white PMBC lettering. Stand out from the crowd with this unique colorway.",
-      category: "Headwear",
-    },
-    {
-      id: 7,
-      name: "Don't Fade PMBC Tee",
-      price: "$35",
-      originalPrice: null,
-      image: "/images/dont-fade-tee.png",
-      rating: 4.9,
-      reviews: 145,
-      badge: "Fan Favorite",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description:
-        "Vibrant green tee featuring our skateboarding ape mascot with the motivational 'Don't Fade!' message.",
-      category: "T-Shirts",
-    },
-    {
-      id: 8,
-      name: "Prime Grunge Tee",
-      price: "$40",
-      originalPrice: null,
-      image: "/images/prime-grunge-tee.png",
-      rating: 4.7,
-      reviews: 92,
-      badge: "Artistic",
-      sizes: ["S", "M", "L", "XL", "XXL"],
-      description:
-        "Distressed grunge-style design on premium heather gray. Features our signature ape with dripping logo effect.",
-      category: "T-Shirts",
-    },
-  ]
+  useEffect(() => {
+    fetchProducts()
+    // Load favorites from localStorage
+    const storedFavorites = localStorage.getItem("prime-mates-favorites")
+    if (storedFavorites) {
+      setFavorites(JSON.parse(storedFavorites))
+    }
+  }, [])
 
-  const toggleFavorite = (id: number) => {
-    setFavorites((prev) => (prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]))
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("/api/products")
+      const data = await response.json()
+      setProducts(data.filter((product: Product) => product.status === "active"))
+    } catch (error) {
+      setProducts([]) // Fallback to empty array
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleFavorite = (id: string) => {
+    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
+    setFavorites(newFavorites)
+    localStorage.setItem("prime-mates-favorites", JSON.stringify(newFavorites))
+  }
+
+  const handleAddToCart = (product: Product) => {
+    addToCart(product)
+  }
+
+  const filteredProducts =
+    selectedCategory === "all"
+      ? products
+      : products.filter((product) => product.category.toLowerCase() === selectedCategory.toLowerCase())
+
+  const categories = ["all", ...Array.from(new Set(products.map((p) => p.category)))]
+
+  const getBadgeColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "bestseller":
+      case "best seller":
+        return "bg-yellow-600"
+      case "new":
+        return "bg-green-600"
+      case "limited":
+        return "bg-red-600"
+      case "popular":
+        return "bg-blue-600"
+      case "exclusive":
+        return "bg-purple-600"
+      case "fan favorite":
+        return "bg-pink-600"
+      default:
+        return "bg-orange-600"
+    }
+  }
+
+  if (loading) {
+    return (
+      <section id="merch" className="py-20 bg-black">
+        <div className="container mx-auto px-4 text-center">
+          <div className="text-yellow-400 text-xl">Loading products...</div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -165,39 +122,45 @@ export function Merch() {
           </div>
         </div>
 
+        <div className="mb-8">
+          <div className="flex flex-wrap justify-center gap-2">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+                className={
+                  selectedCategory === category
+                    ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                    : "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
+                }
+              >
+                {category === "all" ? "All Products" : category}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Products Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-16">
-          {products.map((product) => (
+          {filteredProducts.map((product) => (
             <Card
               key={product.id}
               className="bg-black border-yellow-400/30 hover:border-yellow-400 transition-all duration-300 overflow-hidden group"
             >
               <div className="relative overflow-hidden">
                 <img
-                  src={product.image || "/placeholder.svg"}
+                  src={product.image_url || "/placeholder.svg?height=256&width=256&query=product"}
                   alt={product.name}
                   className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute top-3 left-3">
                   <Badge
                     variant="secondary"
-                    className={`text-xs font-bold ${
-                      product.badge === "Best Seller"
-                        ? "bg-yellow-600"
-                        : product.badge === "New"
-                          ? "bg-green-600"
-                          : product.badge === "Limited"
-                            ? "bg-red-600"
-                            : product.badge === "Popular"
-                              ? "bg-blue-600"
-                              : product.badge === "Exclusive"
-                                ? "bg-purple-600"
-                                : product.badge === "Fan Favorite"
-                                  ? "bg-pink-600"
-                                  : "bg-orange-600"
-                    } text-white`}
+                    className={`text-xs font-bold ${getBadgeColor(product.status)} text-white`}
                   >
-                    {product.badge}
+                    {product.status || "New"}
                   </Badge>
                 </div>
                 <div className="absolute top-3 right-3">
@@ -221,39 +184,42 @@ export function Merch() {
                 <div className="flex items-center mb-2">
                   <div className="flex items-center">
                     <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-xs text-gray-300 ml-1">{product.rating}</span>
-                    <span className="text-xs text-gray-400 ml-1">({product.reviews})</span>
+                    <span className="text-xs text-gray-300 ml-1">4.8</span>
+                    <span className="text-xs text-gray-400 ml-1">(New)</span>
                   </div>
                 </div>
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-400 mb-1">Available Sizes:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {product.sizes.map((size) => (
-                      <Badge key={size} variant="outline" className="border-gray-600 text-gray-400 text-xs px-1 py-0">
-                        {size}
-                      </Badge>
-                    ))}
-                  </div>
+                  <p className="text-xs text-gray-400 mb-1">
+                    Stock: {product.inventory_quantity > 0 ? `${product.inventory_quantity} available` : "Out of stock"}
+                  </p>
+                  {product.sku && <p className="text-xs text-gray-500">SKU: {product.sku}</p>}
                 </div>
 
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-yellow-400">{product.price}</span>
-                    {product.originalPrice && (
-                      <span className="text-xs text-gray-400 line-through">{product.originalPrice}</span>
-                    )}
+                    <span className="text-lg font-bold text-yellow-400">${product.price.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <Button className="w-full bg-yellow-400 text-black hover:bg-yellow-300 font-bold text-sm rounded-lg">
+                <Button
+                  className="w-full bg-yellow-400 text-black hover:bg-yellow-300 font-bold text-sm rounded-lg"
+                  onClick={() => handleAddToCart(product)}
+                  disabled={product.inventory_quantity <= 0}
+                >
                   <ShoppingCart className="mr-2 h-3 w-3" />
-                  Add to Cart
+                  {product.inventory_quantity > 0 ? "Add to Cart" : "Out of Stock"}
                 </Button>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">No products found in this category.</p>
+          </div>
+        )}
 
         {/* Custom Design Platform */}
         <div className="mb-16">
@@ -284,19 +250,21 @@ export function Merch() {
           </Card>
         </div>
 
-        {/* Categories */}
         <div className="text-center">
           <h3 className="text-3xl font-bold mb-8 text-yellow-400">Shop by Category</h3>
           <div className="grid md:grid-cols-4 gap-6">
-            {["T-Shirts", "Hoodies", "Sweatshirts", "Headwear"].map((category) => (
-              <Button
-                key={category}
-                variant="outline"
-                className="h-16 border-yellow-400/50 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent text-lg font-bold rounded-lg"
-              >
-                {category}
-              </Button>
-            ))}
+            {categories
+              .filter((cat) => cat !== "all")
+              .map((category) => (
+                <Button
+                  key={category}
+                  variant="outline"
+                  onClick={() => setSelectedCategory(category)}
+                  className="h-16 border-yellow-400/50 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent text-lg font-bold rounded-lg"
+                >
+                  {category}
+                </Button>
+              ))}
           </div>
         </div>
       </div>

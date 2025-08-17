@@ -19,8 +19,8 @@ export function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission
-    console.log("Form submitted:", formData)
+    // TODO: Implement actual form submission logic
+    setFormData({ name: "", email: "", subject: "", message: "" })
   }
 
   const contactInfo = [

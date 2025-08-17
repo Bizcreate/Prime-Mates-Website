@@ -9,7 +9,7 @@ import { useState, useEffect } from "react"
 import { toast } from "@/hooks/use-toast"
 
 // PMBC Contract Address (you'll need to provide the actual address)
-const PMBC_CONTRACT_ADDRESS = "0x..." // Replace with actual contract address
+const PMBC_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890" // TODO: Replace with actual contract address
 
 export function PrimeArcade() {
   const [account, setAccount] = useState<string | null>(null)
@@ -72,7 +72,6 @@ export function PrimeArcade() {
         })
       }
     } catch (err: any) {
-      console.error("MetaMask connection failed:", err)
       toast({
         title: "Failed to connect",
         description:
@@ -118,7 +117,11 @@ export function PrimeArcade() {
         })
       }
     } catch (error) {
-      console.error("Error checking NFT balance:", error)
+      toast({
+        title: "Error checking NFT balance",
+        description: "Could not verify NFT ownership. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -135,7 +138,7 @@ export function PrimeArcade() {
             await checkNFTBalance(accounts[0])
           }
         } catch (error) {
-          console.error("Error checking connection:", error)
+          // Silently fail connection check on page load
         }
       }
     }
