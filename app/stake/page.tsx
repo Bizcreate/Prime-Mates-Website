@@ -69,10 +69,24 @@ export default function StakePage() {
         title: "Wallet Connected",
         description: "Successfully connected to your wallet",
       })
-    } catch (error) {
+    } catch (error: any) {
+      console.log("[v0] Wallet connection failed:", error)
+
+      let errorMessage = "Failed to connect wallet. Please try again."
+
+      if (
+        error?.code === 4001 ||
+        error?.message?.includes("user rejected") ||
+        error?.message?.includes("User rejected")
+      ) {
+        errorMessage = "Connection cancelled. Please click 'Connect' or 'Approve' when your wallet popup appears."
+      } else if (error?.message?.includes("MetaMask is not installed")) {
+        errorMessage = "MetaMask is not installed. Please install MetaMask to continue."
+      }
+
       toast({
         title: "Connection Failed",
-        description: "Failed to connect wallet. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -211,6 +225,14 @@ export default function StakePage() {
                 <p className="text-gray-400 mb-6">
                   Connect your wallet to start staking your Prime Mates NFTs and earning rewards
                 </p>
+
+                <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-4 mb-6">
+                  <p className="text-yellow-400 text-sm font-medium mb-2">💡 Connection Tip:</p>
+                  <p className="text-gray-300 text-sm">
+                    When your wallet popup appears, make sure to click "Connect" or "Approve" to proceed with staking.
+                  </p>
+                </div>
+
                 <Button
                   onClick={connectWallet}
                   disabled={isLoading}
@@ -408,7 +430,8 @@ export default function StakePage() {
                       <img
                         src={
                           nft.image ||
-                          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif"
+                          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif" ||
+                          "/placeholder.svg"
                         }
                         alt={nft.name}
                         className="w-full h-full object-cover"
