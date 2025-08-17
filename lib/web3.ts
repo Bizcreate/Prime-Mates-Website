@@ -58,6 +58,36 @@ export class Web3Service {
     this.config = config
   }
 
+  private isMobile(): boolean {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  private detectWalletProvider(): any {
+    if (typeof window === "undefined") return null
+
+    // Check for MetaMask first
+    if (window.ethereum?.isMetaMask) {
+      return window.ethereum
+    }
+
+    // Check for other wallet providers
+    if (window.ethereum) {
+      return window.ethereum
+    }
+
+    // Check for Trust Wallet
+    if (window.trustWallet) {
+      return window.trustWallet
+    }
+
+    // Check for Coinbase Wallet
+    if (window.coinbaseWalletExtension) {
+      return window.coinbaseWalletExtension
+    }
+
+    return null
+  }
+
   async connectWallet(): Promise<string> {
     try {
       console.log("[v0] Starting wallet connection...")
@@ -66,16 +96,21 @@ export class Web3Service {
         throw new Error("Browser environment required for wallet connection")
       }
 
-      if (!window.ethereum) {
-        throw new Error("MetaMask not installed. Please install MetaMask to continue.")
+      const walletProvider = this.detectWalletProvider()
+
+      if (!walletProvider) {
+        if (this.isMobile()) {
+          // On mobile, provide instructions for different wallet apps
+          throw new Error(
+            "Please open this page in your mobile wallet app (MetaMask, Trust Wallet, or Coinbase Wallet)",
+          )
+        } else {
+          throw new Error("No wallet detected. Please install MetaMask, Trust Wallet, or Coinbase Wallet")
+        }
       }
 
-      if (!window.ethereum.isMetaMask) {
-        throw new Error("MetaMask not detected. Please ensure MetaMask is properly installed.")
-      }
-
-      console.log("[v0] MetaMask detected, creating provider...")
-      this.provider = new ethers.BrowserProvider(window.ethereum)
+      console.log("[v0] Wallet provider detected, creating provider...")
+      this.provider = new ethers.BrowserProvider(walletProvider)
 
       console.log("[v0] Requesting account access...")
       await this.provider.send("eth_requestAccounts", [])
@@ -103,25 +138,31 @@ export class Web3Service {
       if (error.code === 4001) {
         throw new Error("Connection rejected by user")
       } else if (error.code === -32002) {
-        throw new Error("Connection request already pending. Please check MetaMask.")
+        throw new Error("Connection request already pending. Please check your wallet app.")
       } else if (error.message?.includes("User rejected")) {
         throw new Error("Connection rejected by user")
-      } else if (error.message?.includes("MetaMask not installed")) {
-        throw new Error("MetaMask not installed. Please install MetaMask to continue.")
-      } else if (error.message?.includes("MetaMask not detected")) {
-        throw new Error("MetaMask not detected. Please ensure MetaMask is properly installed.")
+      } else if (error.message?.includes("open this page in your mobile wallet")) {
+        throw error // Pass through mobile-specific error
+      } else if (error.message?.includes("No wallet detected")) {
+        throw error // Pass through wallet detection error
       }
 
       // Fallback error message
       const errorMessage = error.message || "Unknown wallet connection error"
-      throw new Error(`Failed to connect to MetaMask: ${errorMessage}`)
+      throw new Error(`Failed to connect wallet: ${errorMessage}`)
     }
   }
 
   async switchNetwork(): Promise<void> {
     try {
       console.log("[v0] Attempting to switch network...")
-      await window.ethereum.request({
+      const walletProvider = this.detectWalletProvider()
+
+      if (!walletProvider) {
+        throw new Error("No wallet provider available")
+      }
+
+      await walletProvider.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: `0x${this.config.chainId.toString(16)}` }],
       })
@@ -129,8 +170,8 @@ export class Web3Service {
     } catch (error: any) {
       console.error("[v0] Network switch failed:", error)
       if (error.code === 4902) {
-        // Network not added to MetaMask
-        throw new Error("Please add Ethereum network to MetaMask")
+        // Network not added to wallet
+        throw new Error("Please add Ethereum network to your wallet")
       }
       throw new Error(`Failed to switch network: ${error.message || "Unknown error"}`)
     }
@@ -139,8 +180,9 @@ export class Web3Service {
   async checkNFTBalance(address: string): Promise<number> {
     try {
       if (!this.provider) {
-        if (typeof window !== "undefined" && window.ethereum) {
-          this.provider = new ethers.BrowserProvider(window.ethereum)
+        const walletProvider = this.detectWalletProvider()
+        if (walletProvider) {
+          this.provider = new ethers.BrowserProvider(walletProvider)
         } else {
           throw new Error("No wallet provider available")
         }
@@ -222,7 +264,10 @@ export class Web3Service {
 
       if (!this.provider) {
         try {
-          this.provider = new ethers.BrowserProvider(window.ethereum)
+          const walletProvider = this.detectWalletProvider()
+          if (walletProvider) {
+            this.provider = new ethers.BrowserProvider(walletProvider)
+          }
         } catch {
           // If no wallet, return fallback values
           return stats
@@ -284,8 +329,9 @@ export class Web3Service {
       const nfts: NFTMetadata[] = []
 
       if (!this.provider) {
-        if (typeof window !== "undefined" && window.ethereum) {
-          this.provider = new ethers.BrowserProvider(window.ethereum)
+        const walletProvider = this.detectWalletProvider()
+        if (walletProvider) {
+          this.provider = new ethers.BrowserProvider(walletProvider)
           console.log("[v0] Created new provider")
         } else {
           throw new Error("No wallet provider available")
@@ -388,5 +434,7 @@ export const web3Service = new Web3Service()
 declare global {
   interface Window {
     ethereum?: any
+    trustWallet?: any
+    coinbaseWalletExtension?: any
   }
 }
