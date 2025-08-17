@@ -16,6 +16,7 @@ export function Navigation() {
     { name: "NFTs", href: "/nfts" },
     { name: "Mint", href: "/mint" },
     { name: "Mint PTTB", href: "/mint-pttb" }, // Added PTTB mint page link
+    { name: "Stake", href: "/stake" }, // Added staking page link
     { name: "Dashboard", href: "/dashboard" },
     { name: "Community", href: "/community" },
     { name: "Games", href: "/games" },
