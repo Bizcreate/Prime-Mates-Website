@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink, ImageIcon, AlertCircle } from "lucide-react"
 import { web3Service } from "@/lib/web3"
 import { toast } from "@/hooks/use-toast"
@@ -44,12 +45,18 @@ export function MemberDashboard() {
   const [userNFTs, setUserNFTs] = useState<NFT[]>([])
   const [loadingNFTs, setLoadingNFTs] = useState(false)
   const [showConnectionGuide, setShowConnectionGuide] = useState(false)
+  const [showWalletModal, setShowWalletModal] = useState(false)
 
-  const connectWallet = async () => {
+  const connectWallet = () => {
+    setShowWalletModal(true)
+  }
+
+  const connectSpecificWallet = async (walletType: string) => {
     try {
       setLoading(true)
+      setShowWalletModal(false)
       setShowConnectionGuide(true)
-      console.log("[v0] Starting wallet connection...")
+      console.log("[v0] Starting wallet connection for:", walletType)
 
       console.log("[v0] Calling web3Service.connectWallet...")
       const address = await web3Service.connectWallet()
@@ -62,7 +69,7 @@ export function MemberDashboard() {
       await loadUserNFTs(address)
       toast({
         title: "Wallet Connected",
-        description: "Successfully connected to your wallet",
+        description: `Successfully connected to ${walletType}`,
       })
     } catch (error) {
       console.error("[v0] Wallet connection failed:", error)
@@ -73,7 +80,7 @@ export function MemberDashboard() {
         if (error.message.includes("rejected") || error.message.includes("denied")) {
           errorMessage = "Connection was rejected. Please click 'Connect' in your wallet popup to proceed."
         } else if (error.message.includes("not installed")) {
-          errorMessage = "MetaMask is not installed. Please install MetaMask or open this page in your wallet app."
+          errorMessage = `${walletType} is not installed. Please install ${walletType} or open this page in your wallet app.`
         } else {
           errorMessage = error.message
         }
@@ -274,6 +281,79 @@ export function MemberDashboard() {
             </div>
           </div>
         </div>
+
+        <Dialog open={showWalletModal} onOpenChange={setShowWalletModal}>
+          <DialogContent className="bg-gray-900 border-yellow-400/20 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-yellow-400 text-xl">Choose Your Wallet</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <Button
+                onClick={() => connectSpecificWallet("MetaMask")}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white p-4 h-auto"
+                disabled={loading}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">M</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">MetaMask</div>
+                    <div className="text-sm opacity-80">Most popular wallet</div>
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => connectSpecificWallet("Trust Wallet")}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 h-auto"
+                disabled={loading}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">T</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">Trust Wallet</div>
+                    <div className="text-sm opacity-80">Mobile-first wallet</div>
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => connectSpecificWallet("Coinbase Wallet")}
+                className="w-full bg-blue-800 hover:bg-blue-900 text-white p-4 h-auto"
+                disabled={loading}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">C</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">Coinbase Wallet</div>
+                    <div className="text-sm opacity-80">Easy to use</div>
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => connectSpecificWallet("WalletConnect")}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 h-auto"
+                disabled={loading}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">W</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">WalletConnect</div>
+                    <div className="text-sm opacity-80">Connect any wallet</div>
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
