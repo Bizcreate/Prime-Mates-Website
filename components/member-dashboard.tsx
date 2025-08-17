@@ -36,7 +36,16 @@ export function MemberDashboard() {
   const connectWallet = async () => {
     try {
       setLoading(true)
+      console.log("[v0] Starting wallet connection...")
+
+      if (typeof window.ethereum === "undefined") {
+        throw new Error("MetaMask is not installed. Please install MetaMask to continue.")
+      }
+
+      console.log("[v0] MetaMask detected, calling Web3Service.connectWallet...")
       const address = await Web3Service.connectWallet()
+      console.log("[v0] Wallet connected successfully:", address)
+
       setWalletAddress(address)
       setIsConnected(true)
       await loadUserStats(address)
@@ -45,9 +54,10 @@ export function MemberDashboard() {
         description: "Successfully connected to your wallet",
       })
     } catch (error) {
+      console.error("[v0] Wallet connection failed:", error)
       toast({
         title: "Connection Failed",
-        description: "Failed to connect wallet. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to connect wallet. Please try again.",
         variant: "destructive",
       })
     } finally {
