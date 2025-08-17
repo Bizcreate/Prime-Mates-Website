@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import type { Product } from "@/lib/db"
 
 interface CartItem {
   id: string
@@ -14,7 +13,7 @@ interface CartItem {
 
 interface CartContextType {
   cart: CartItem[]
-  addToCart: (product: Product) => void
+  addToCart: (product: any) => void
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
@@ -40,7 +39,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("prime-mates-cart", JSON.stringify(cart))
   }, [cart])
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: any) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id)
       if (existingItem) {
@@ -109,4 +108,12 @@ export function useCart() {
     throw new Error("useCart must be used within a CartProvider")
   }
   return context
+}
+
+interface Product {
+  id: string
+  name: string
+  price: number
+  image_url: string | null
+  sku?: string | null
 }

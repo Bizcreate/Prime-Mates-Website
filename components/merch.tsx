@@ -198,7 +198,7 @@ export function Merch() {
 
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-yellow-400">${product.price.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-yellow-400">${Number(product.price || 0).toFixed(2)}</span>
                   </div>
                 </div>
 

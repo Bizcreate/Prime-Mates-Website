@@ -1,13 +1,13 @@
 import { neon } from "@neondatabase/serverless"
 
 // Ensure DATABASE_URL is set in your environment variables
-const databaseUrl = process.env.DATABASE_URL
+const databaseUrl = typeof window === "undefined" ? process.env.DATABASE_URL : null
 
-if (!databaseUrl) {
+if (typeof window === "undefined" && !databaseUrl) {
   throw new Error("DATABASE_URL environment variable is not set.")
 }
 
-export const sql = neon(databaseUrl)
+export const sql = databaseUrl ? neon(databaseUrl) : null
 
 export interface Product {
   id: string
