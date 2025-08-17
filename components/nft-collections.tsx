@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ExternalLink, Eye } from "lucide-react"
+import { ExternalLink, Eye, Zap } from "lucide-react"
 import { useState } from "react"
+import Link from "next/link"
 
 export function NFTCollections() {
   const [hoveredNFT, setHoveredNFT] = useState<number | null>(null)
@@ -19,6 +20,7 @@ export function NFTCollections() {
       totalSupply: "2,222",
       image: "/images/nft-pmbc.png",
       openseaUrl: "https://opensea.io/collection/pmbc",
+      mintUrl: "/mint",
       status: "Live",
     },
     {
@@ -29,6 +31,7 @@ export function NFTCollections() {
       totalSupply: "999",
       image: "/images/nft-prime-to-bone.png",
       openseaUrl: "https://opensea.io/collection/prime-to-the-bone",
+      mintUrl: "/mint-pttb",
       status: "Live",
     },
     {
@@ -39,6 +42,7 @@ export function NFTCollections() {
       totalSupply: "666",
       image: "/images/nft-halloween.png",
       openseaUrl: "https://opensea.io/collection/prime-halloween-board-club",
+      mintUrl: null,
       status: "Limited",
     },
     {
@@ -49,6 +53,7 @@ export function NFTCollections() {
       totalSupply: "1111",
       image: "/images/nft-christmas.png",
       openseaUrl: "https://opensea.io/collection/prime-mates-christmas-club",
+      mintUrl: null,
       status: "Seasonal",
     },
   ]
@@ -117,9 +122,17 @@ export function NFTCollections() {
                   </Badge>
                 </div>
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  {collection.mintUrl && (
+                    <Link href={collection.mintUrl}>
+                      <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 font-bold rounded-lg shadow-lg">
+                        <Zap className="mr-2 h-4 w-4" />
+                        Mint Now
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     variant="outline"
-                    className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent rounded-lg"
+                    className="w-full border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/10 font-bold rounded-lg bg-transparent"
                     onClick={() => window.open(collection.openseaUrl, "_blank")}
                   >
                     <Eye className="mr-2 h-4 w-4" />
@@ -142,13 +155,24 @@ export function NFTCollections() {
                   </div>
                 </div>
 
-                <Button
-                  className="w-full bg-yellow-400 text-black hover:bg-yellow-300 font-bold rounded-lg"
-                  onClick={() => window.open(collection.openseaUrl, "_blank")}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View on OpenSea
-                </Button>
+                <div className="space-y-2">
+                  {collection.mintUrl && (
+                    <Link href={collection.mintUrl}>
+                      <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 font-bold rounded-lg shadow-lg">
+                        <Zap className="mr-2 h-4 w-4" />
+                        Mint Now
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/10 font-bold rounded-lg bg-transparent"
+                    onClick={() => window.open(collection.openseaUrl, "_blank")}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    View on OpenSea
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
