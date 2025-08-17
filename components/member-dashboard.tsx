@@ -58,8 +58,49 @@ export function MemberDashboard() {
       setShowConnectionGuide(true)
       console.log("[v0] Starting wallet connection for:", walletType)
 
-      console.log("[v0] Calling web3Service.connectWallet...")
-      const address = await web3Service.connectWallet()
+      let address: string
+
+      // Handle different wallet types with specific connection logic
+      if (walletType === "MetaMask") {
+        if (typeof window !== "undefined" && window.ethereum?.isMetaMask) {
+          address = await web3Service.connectWallet()
+        } else {
+          throw new Error("MetaMask is not installed. Please install MetaMask extension.")
+        }
+      } else if (walletType === "Trust Wallet") {
+        if (typeof window !== "undefined" && window.trustWallet) {
+          address = await web3Service.connectWallet()
+        } else {
+          // On mobile, redirect to Trust Wallet deep link
+          if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            window.location.href = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(window.location.href)}`
+            return
+          } else {
+            throw new Error(
+              "Trust Wallet is not installed. Please install Trust Wallet or open this page in the Trust Wallet browser.",
+            )
+          }
+        }
+      } else if (walletType === "Coinbase Wallet") {
+        if (typeof window !== "undefined" && (window.coinbaseWalletExtension || window.ethereum?.isCoinbaseWallet)) {
+          address = await web3Service.connectWallet()
+        } else {
+          // On mobile, redirect to Coinbase Wallet deep link
+          if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            window.location.href = `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(window.location.href)}`
+            return
+          } else {
+            throw new Error("Coinbase Wallet is not installed. Please install Coinbase Wallet extension.")
+          }
+        }
+      } else if (walletType === "WalletConnect") {
+        // For WalletConnect, we'll use the generic connection
+        address = await web3Service.connectWallet()
+      } else {
+        // Fallback to generic connection
+        address = await web3Service.connectWallet()
+      }
+
       console.log("[v0] Wallet connected successfully:", address)
 
       setWalletAddress(address)
@@ -78,9 +119,11 @@ export function MemberDashboard() {
       let errorMessage = "Failed to connect wallet. Please try again."
       if (error instanceof Error) {
         if (error.message.includes("rejected") || error.message.includes("denied")) {
-          errorMessage = "Connection was rejected. Please click 'Connect' in your wallet popup to proceed."
+          errorMessage = `Connection was rejected. Please approve the connection request in your ${walletType} app.`
         } else if (error.message.includes("not installed")) {
-          errorMessage = `${walletType} is not installed. Please install ${walletType} or open this page in your wallet app.`
+          errorMessage = error.message
+        } else if (error.message.includes("pending")) {
+          errorMessage = `Connection request is pending. Please check your ${walletType} app and approve the connection.`
         } else {
           errorMessage = error.message
         }
