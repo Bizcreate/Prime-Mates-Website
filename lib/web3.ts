@@ -40,7 +40,7 @@ export class Web3Service {
     this.config = config
   }
 
-  async connectWallet(): Promise<string | null> {
+  async connectWallet(): Promise<string> {
     try {
       if (typeof window === "undefined" || !window.ethereum) {
         throw new Error("MetaMask not installed")
@@ -61,7 +61,7 @@ export class Web3Service {
       return address
     } catch (error) {
       console.error("Failed to connect wallet:", error)
-      return null
+      throw error
     }
   }
 
@@ -83,7 +83,11 @@ export class Web3Service {
   async checkNFTBalance(address: string): Promise<number> {
     try {
       if (!this.provider) {
-        this.provider = new ethers.BrowserProvider(window.ethereum)
+        if (typeof window !== "undefined" && window.ethereum) {
+          this.provider = new ethers.BrowserProvider(window.ethereum)
+        } else {
+          throw new Error("No wallet provider available")
+        }
       }
 
       const contract = new ethers.Contract(this.config.contractAddress, MINT_ABI, this.provider)

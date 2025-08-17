@@ -15,9 +15,10 @@ export function Navigation() {
     { name: "Home", href: "#home" },
     { name: "NFTs", href: "/nfts" },
     { name: "Mint", href: "/mint" }, // Added Mint link to navigation menu
+    { name: "Dashboard", href: "/dashboard" }, // Added member dashboard link
     { name: "Games", href: "/games" },
     { name: "Prime Arcade", href: "/games" },
-    { name: "Merch", href: "/merch" }, // Now points to the combined merch/store page
+    { name: "Merch", href: "/merch" },
     { name: "Events", href: "/events" },
     { name: "About", href: "#about" },
     { name: "Community", href: "#community" },
