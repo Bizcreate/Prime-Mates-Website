@@ -313,6 +313,115 @@ export default function MintPage() {
           <p className="text-xl text-gray-400">Exclusive perks for NFT holders</p>
         </div>
 
+        {/* PMBC Mint Out Bonus section */}
+        <div className="mb-16">
+          <Card className="bg-gradient-to-br from-[#fdc730]/20 via-yellow-600/10 to-[#fdc730]/20 border-[#fdc730] shadow-2xl shadow-[#fdc730]/20">
+            <CardContent className="p-8">
+              <div className="text-center mb-8">
+                <Badge className="mb-4 bg-[#fdc730] text-black text-lg px-4 py-2 font-bold">🎉 MINT OUT BONUS</Badge>
+                <h3 className="text-3xl font-bold text-[#fdc730] mb-4">$50,000 Reward Pool</h3>
+                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                  Once the collection is fully minted, all PMBC holders will share in a massive $50,000 bonus pool based
+                  on their tier level!
+                </p>
+              </div>
+
+              {/* PMBC Tier System */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <Card className="bg-gray-900/50 border-gray-700">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">🥉</div>
+                    <h4 className="font-bold text-[#fdc730] mb-2">Holder</h4>
+                    <p className="text-sm text-gray-400 mb-2">1-2 NFTs</p>
+                    <Badge variant="outline" className="border-gray-600 text-gray-400">
+                      0% Share
+                    </Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/50 border-green-700">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">🏄‍♂️</div>
+                    <h4 className="font-bold text-green-400 mb-2">Grom</h4>
+                    <p className="text-sm text-gray-400 mb-2">3-5 NFTs</p>
+                    <Badge className="bg-green-900 text-green-300">10% Share</Badge>
+                    <p className="text-xs text-green-400 mt-1">+ Free Skateboard</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/50 border-blue-700">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">🛹</div>
+                    <h4 className="font-bold text-blue-400 mb-2">Amateur</h4>
+                    <p className="text-sm text-gray-400 mb-2">6-9 NFTs</p>
+                    <Badge className="bg-blue-900 text-blue-300">20% Share</Badge>
+                    <p className="text-xs text-blue-400 mt-1">+ Free Skateboard</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/50 border-purple-700">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">🏆</div>
+                    <h4 className="font-bold text-purple-400 mb-2">Pro</h4>
+                    <p className="text-sm text-gray-400 mb-2">10-15 NFTs</p>
+                    <Badge className="bg-purple-900 text-purple-300">30% Share</Badge>
+                    <p className="text-xs text-purple-400 mt-1">+ Free Skateboard</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/50 border-[#fdc730]">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">👑</div>
+                    <h4 className="font-bold text-[#fdc730] mb-2">Champion</h4>
+                    <p className="text-sm text-gray-400 mb-2">16+ NFTs</p>
+                    <Badge className="bg-[#fdc730] text-black">40% Share</Badge>
+                    <p className="text-xs text-[#fdc730] mt-1">+ Free Skateboard</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="text-center">
+                <p className="text-gray-300 mb-4">
+                  Members in each tier will share the allocated amount equally. The more NFTs you hold, the higher your
+                  tier and reward!
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="p-3 bg-green-900/20 rounded-lg border border-green-700">
+                    <div className="font-bold text-green-400">Grom Tier</div>
+                    <div className="text-green-300">$5,000 Pool</div>
+                  </div>
+                  <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-700">
+                    <div className="font-bold text-blue-400">Amateur Tier</div>
+                    <div className="text-blue-300">$10,000 Pool</div>
+                  </div>
+                  <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-700">
+                    <div className="font-bold text-purple-400">Pro Tier</div>
+                    <div className="text-purple-300">$15,000 Pool</div>
+                  </div>
+                  <div className="p-3 bg-[#fdc730]/20 rounded-lg border border-[#fdc730]">
+                    <div className="font-bold text-[#fdc730]">Champion Tier</div>
+                    <div className="text-[#fdc730]">$20,000 Pool</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Limited Mint Bounties section */}
+        <div className="mb-12">
+          <Card className="bg-gradient-to-r from-red-900/20 to-orange-900/20 border-red-700 shadow-lg shadow-red-700/20">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-red-400 mb-4">🎁 Limited Mint Bounties</h3>
+              <p className="text-lg text-gray-300 mb-4">
+                <span className="text-[#fdc730] font-bold">Mint 2 NFTs</span> and receive a{" "}
+                <span className="text-red-400 font-bold">FREE merch item</span>!
+              </p>
+              <Badge className="bg-red-900 text-red-300 text-sm px-3 py-1">Limited Time Offer</Badge>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Updated Benefits Section */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-gray-900/30 border-gray-800 hover:border-[#fdc730]/50 transition-colors duration-200">
@@ -356,26 +465,30 @@ export default function MintPage() {
           </Card>
         </div>
 
-        {/* Holder Benefits Callout */}
         <div className="mt-12">
           <Card className="bg-gradient-to-r from-[#fdc730]/10 to-yellow-600/10 border-[#fdc730]/30 shadow-lg shadow-[#fdc730]/10">
             <CardContent className="p-8 text-center">
-              <h3 className="text-2xl font-bold text-[#fdc730] mb-4">Multi-Holder Bonus</h3>
+              <h3 className="text-2xl font-bold text-[#fdc730] mb-4">🛹 Skateboard Rewards</h3>
               <p className="text-lg text-gray-300 mb-6">
-                The more Prime Mates you hold, the greater your rewards! Unlock exclusive tiers and enhanced benefits.
+                All holders at Grom tier and above receive a physical skateboard at mint out! Plus, claim exclusive
+                tier-specific skateboard designs.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="p-3 bg-gray-900/50 rounded-lg border border-[#fdc730]/20">
-                  <div className="font-bold text-[#fdc730]">1-2 NFTs</div>
-                  <div className="text-gray-400">Basic Club Access</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div className="p-3 bg-green-900/20 rounded-lg border border-green-700">
+                  <div className="font-bold text-green-400">Grom (3-5)</div>
+                  <div className="text-green-300">Basic Skateboard</div>
                 </div>
-                <div className="p-3 bg-gray-900/50 rounded-lg border border-[#fdc730]/20">
-                  <div className="font-bold text-[#fdc730]">3-5 NFTs</div>
-                  <div className="text-gray-400">Enhanced Rewards</div>
+                <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-700">
+                  <div className="font-bold text-blue-400">Amateur (6-9)</div>
+                  <div className="text-blue-300">Pro Skateboard</div>
                 </div>
-                <div className="p-3 bg-gray-900/50 rounded-lg border border-[#fdc730]/20">
-                  <div className="font-bold text-[#fdc730]">6+ NFTs</div>
-                  <div className="text-gray-400">VIP Status</div>
+                <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-700">
+                  <div className="font-bold text-purple-400">Pro (10-15)</div>
+                  <div className="text-purple-300">Elite Skateboard</div>
+                </div>
+                <div className="p-3 bg-[#fdc730]/20 rounded-lg border border-[#fdc730]">
+                  <div className="font-bold text-[#fdc730]">Champion (16+)</div>
+                  <div className="text-[#fdc730]">Legendary Skateboard</div>
                 </div>
               </div>
             </CardContent>
