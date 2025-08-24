@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useWallet } from "@/contexts/simple-wallet-context"
+import { useWallet } from "@/contexts/unified-wallet-context"
 import { fetchUserNFTs } from "@/lib/web3-utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,7 +45,7 @@ const tierInfo = {
 }
 
 export function MemberDashboard() {
-  const { address, isConnected, connectWallet, isConnecting } = useWallet()
+  const { address, isConnected, disconnect, loading: walletLoading } = useWallet()
   const [nfts, setNfts] = useState<NFT[]>([])
   const [collections, setCollections] = useState<Collections>({ pmbc: [], pttb: [], halloween: [], christmas: [] })
   const [isLoading, setIsLoading] = useState(false)
@@ -53,7 +53,7 @@ export function MemberDashboard() {
 
   useEffect(() => {
     if (isConnected && address) {
-      console.log("[v0] Simple wallet connected, fetching NFTs for:", address)
+      console.log("[v0] Unified wallet connected, fetching NFTs for:", address)
       loadUserNFTs()
     }
   }, [isConnected, address])
@@ -187,13 +187,12 @@ export function MemberDashboard() {
               </CardContent>
             </Card>
 
-            <Button
-              onClick={connectWallet}
-              disabled={isConnecting}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-8 text-lg"
-            >
-              {isConnecting ? "Connecting..." : "Connect Wallet"}
-            </Button>
+            <div className="flex justify-center">
+              <div className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-8 text-lg rounded-lg">
+                {/* This will be handled by the thirdweb ConnectButton in the navigation */}
+                <p>Use the Connect Wallet button in the navigation</p>
+              </div>
+            </div>
 
             <div className="mt-6 text-sm text-gray-400">
               <p>Secure wallet connection via Web3</p>
