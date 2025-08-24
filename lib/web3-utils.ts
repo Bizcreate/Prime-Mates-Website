@@ -205,9 +205,13 @@ export async function fetchUserNFTs(
   contractAddress?: string,
   chainId?: number,
 ): Promise<NFTTokenData[]> {
+  console.log(`[v0] Fetching NFTs for wallet: ${userAddress}`)
+
   if (contractAddress && chainId) {
     // Get NFTs from specific collection
     try {
+      console.log(`[v0] Checking collection ${contractAddress} on chain ${chainId}`)
+
       const balance = await readContract(config, {
         address: contractAddress as `0x${string}`,
         abi: ERC721_ABI,
@@ -221,8 +225,10 @@ export async function fetchUserNFTs(
 
       if (balanceNum > 0) {
         const userNFTs: NFTTokenData[] = []
-        const maxTokensToCheck = Math.min(balanceNum * 10, 100)
+        const maxTokensToCheck = Math.min(balanceNum * 50, 2500) // Check up to 2500 tokens
         let foundTokens = 0
+
+        console.log(`[v0] Searching through ${maxTokensToCheck} tokens to find ${balanceNum} owned NFTs`)
 
         for (let tokenId = 1; tokenId <= maxTokensToCheck && foundTokens < balanceNum; tokenId++) {
           try {
@@ -235,10 +241,12 @@ export async function fetchUserNFTs(
             })
 
             if (owner?.toLowerCase() === userAddress.toLowerCase()) {
+              console.log(`[v0] Found owned NFT: Token ${tokenId} owned by ${userAddress}`)
               const nftData = await fetchNFTByTokenId(contractAddress, tokenId, chainId)
               if (nftData) {
                 userNFTs.push(nftData)
                 foundTokens++
+                console.log(`[v0] Successfully loaded NFT data for token ${tokenId}`)
               }
             }
           } catch (error) {
@@ -246,19 +254,22 @@ export async function fetchUserNFTs(
           }
         }
 
+        console.log(`[v0] Found ${foundTokens} NFTs for user in this collection`)
         return userNFTs
       }
     } catch (error) {
-      console.error(`Error fetching NFTs for collection ${contractAddress}:`, error)
+      console.error(`[v0] Error fetching NFTs for collection ${contractAddress}:`, error)
     }
 
     return []
   } else {
-    // Get NFTs from all collections (convert NFTMetadata to NFTTokenData format)
+    // Get NFTs from all collections
+    console.log(`[v0] Checking all collections for wallet ${userAddress}`)
+
     const collections = [
       { address: "0x12662b6a2a424a0090b7d09401fb775a9b968898", name: "Prime Mates Board Club", chainId: 1 },
       { address: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75", name: "Prime To The Bone", chainId: 137 },
-      { address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8", name: "Prime Halloween", chainId: 1 }, // Try Ethereum mainnet
+      { address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8", name: "Prime Halloween", chainId: 1 },
       { address: "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf", name: "Prime Mates Christmas Club", chainId: 137 },
     ]
 
@@ -266,6 +277,8 @@ export async function fetchUserNFTs(
 
     for (const collection of collections) {
       try {
+        console.log(`[v0] Checking ${collection.name} (${collection.address}) on chain ${collection.chainId}`)
+
         // Get user's balance for this collection
         const balance = await readContract(config, {
           address: collection.address as `0x${string}`,
@@ -279,10 +292,10 @@ export async function fetchUserNFTs(
         console.log(`[v0] User has ${balanceNum} NFTs in ${collection.name}`)
 
         if (balanceNum > 0) {
-          // Try to find user's tokens by checking ownership
-          // This is a simplified approach - in production you'd use events or indexing
-          const maxTokensToCheck = Math.min(balanceNum * 10, 100) // Check up to 100 tokens
+          const maxTokensToCheck = Math.min(balanceNum * 50, 2500) // Check up to 2500 tokens
           let foundTokens = 0
+
+          console.log(`[v0] Searching through ${maxTokensToCheck} tokens in ${collection.name}`)
 
           for (let tokenId = 1; tokenId <= maxTokensToCheck && foundTokens < balanceNum; tokenId++) {
             try {
@@ -295,22 +308,27 @@ export async function fetchUserNFTs(
               })
 
               if (owner?.toLowerCase() === userAddress.toLowerCase()) {
+                console.log(`[v0] Found owned NFT in ${collection.name}: Token ${tokenId}`)
                 const nftData = await fetchNFTByTokenId(collection.address, tokenId, collection.chainId)
                 if (nftData) {
                   userNFTs.push(nftData)
                   foundTokens++
+                  console.log(`[v0] Successfully loaded NFT data for ${collection.name} token ${tokenId}`)
                 }
               }
             } catch (error) {
               // Token doesn't exist or other error, continue
             }
           }
+
+          console.log(`[v0] Found ${foundTokens} NFTs in ${collection.name}`)
         }
       } catch (error) {
-        console.error(`Error fetching NFTs for ${collection.name}:`, error)
+        console.error(`[v0] Error fetching NFTs for ${collection.name}:`, error)
       }
     }
 
+    console.log(`[v0] Total NFTs found across all collections: ${userNFTs.length}`)
     return userNFTs
   }
 }
