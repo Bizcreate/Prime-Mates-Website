@@ -14,13 +14,13 @@ export function Navigation() {
   const navItems = [
     { name: "Home", href: "/" },
     { name: "NFTs", href: "/nfts" },
+    { name: "Gallery", href: "/gallery" },
     { name: "Mint", href: "/mint" },
-    { name: "Mint PTTB", href: "/mint-pttb" }, // Added PTTB mint page link
-    { name: "Stake", href: "/stake" }, // Added staking page link
+    { name: "Mint PTTB", href: "/mint-pttb" },
+    { name: "Stake", href: "/stake" },
     { name: "Dashboard", href: "/dashboard" },
     { name: "Community", href: "/community" },
-    { name: "Games", href: "/games" },
-    { name: "Prime Arcade", href: "/games" },
+    { name: "Games & Prime Arcade", href: "/games" },
     { name: "Merch", href: "/merch" },
     { name: "Events", href: "/events" },
     { name: "About", href: "/#about" },
@@ -55,7 +55,7 @@ export function Navigation() {
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
-            <CartDisplay /> {/* Integrated CartDisplay */}
+            <CartDisplay />
             <Button variant="ghost" size="sm" className="text-white hover:text-yellow-400 hover:bg-yellow-400/10">
               <User className="h-5 w-5" />
             </Button>

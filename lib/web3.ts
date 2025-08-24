@@ -49,9 +49,18 @@ export interface NFTMetadata {
   contractAddress: string
 }
 
+export interface NFTTokenData {
+  tokenId: string
+  name: string
+  image: string
+  description?: string
+  attributes?: Array<{ trait_type: string; value: string }>
+  owner?: string
+}
+
 export class Web3Service {
   private config: Web3Config
-  private provider: ethers.BrowserProvider | null = null
+  private provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null = null
   private signer: ethers.JsonRpcSigner | null = null
 
   constructor(config: Web3Config = DEFAULT_CONFIG) {
@@ -184,7 +193,8 @@ export class Web3Service {
         if (walletProvider) {
           this.provider = new ethers.BrowserProvider(walletProvider)
         } else {
-          throw new Error("No wallet provider available")
+          // Use public RPC for read-only operations
+          this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl)
         }
       }
 
@@ -334,7 +344,8 @@ export class Web3Service {
           this.provider = new ethers.BrowserProvider(walletProvider)
           console.log("[v0] Created new provider")
         } else {
-          throw new Error("No wallet provider available")
+          // Use public RPC for read-only operations
+          this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl)
         }
       }
 
@@ -424,6 +435,130 @@ export class Web3Service {
       return nfts
     } catch (error) {
       console.error("[v0] Failed to fetch NFTs from contract:", contractAddress, error)
+      return []
+    }
+  }
+
+  async fetchNFTByTokenId(contractAddress: string, tokenId: number): Promise<NFTTokenData | null> {
+    try {
+      console.log("[v0] Fetching NFT", tokenId, "from contract", contractAddress)
+
+      if (!this.provider) {
+        const walletProvider = this.detectWalletProvider()
+        if (walletProvider) {
+          this.provider = new ethers.BrowserProvider(walletProvider)
+        } else {
+          // Use public RPC for read-only operations
+          this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl)
+        }
+      }
+
+      const contract = new ethers.Contract(contractAddress, MINT_ABI, this.provider)
+
+      // Check if token exists
+      try {
+        const owner = await contract.ownerOf(tokenId)
+        console.log("[v0] Token", tokenId, "owned by:", owner)
+      } catch (error) {
+        console.log("[v0] Token", tokenId, "does not exist or not minted yet")
+        return null
+      }
+
+      // Try to get token URI
+      let tokenURI = ""
+      try {
+        tokenURI = await contract.tokenURI(tokenId)
+        console.log("[v0] Token URI:", tokenURI)
+      } catch (error) {
+        console.log("[v0] Could not get token URI for", tokenId)
+      }
+
+      // If we have a token URI, try to fetch metadata
+      if (tokenURI) {
+        try {
+          // Handle IPFS URLs
+          if (tokenURI.startsWith("ipfs://")) {
+            tokenURI = tokenURI.replace("ipfs://", "https://ipfs.io/ipfs/")
+          }
+
+          const response = await fetch(tokenURI)
+          const metadata = await response.json()
+
+          return {
+            tokenId: tokenId.toString(),
+            name: metadata.name || `Token #${tokenId}`,
+            image: metadata.image?.replace("ipfs://", "https://ipfs.io/ipfs/") || "/abstract-nft-concept.png",
+            description: metadata.description,
+            attributes: metadata.attributes || [],
+          }
+        } catch (error) {
+          console.log("[v0] Could not fetch metadata from URI:", error)
+        }
+      }
+
+      return {
+        tokenId: tokenId.toString(),
+        name: `Token #${tokenId}`,
+        image: "/abstract-nft-concept.png",
+        description: `NFT #${tokenId} from this collection`,
+        attributes: [{ trait_type: "Status", value: "Minted" }],
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching NFT by token ID:", error)
+      return null
+    }
+  }
+
+  async fetchCollectionNFTs(contractAddress: string, startId = 1, count = 12): Promise<NFTTokenData[]> {
+    try {
+      console.log("[v0] Fetching", count, "NFTs from collection", contractAddress)
+
+      if (!this.provider) {
+        const walletProvider = this.detectWalletProvider()
+        if (walletProvider) {
+          this.provider = new ethers.BrowserProvider(walletProvider)
+        } else {
+          // Use public RPC for read-only operations
+          this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl)
+        }
+      }
+
+      const contract = new ethers.Contract(contractAddress, MINT_ABI, this.provider)
+      const nfts: NFTTokenData[] = []
+
+      // Get total supply to know valid range
+      let totalSupply = 0
+      try {
+        const supply = await contract.totalSupply()
+        totalSupply = Number(supply)
+        console.log("[v0] Collection total supply:", totalSupply)
+      } catch (error) {
+        console.log("[v0] Could not get total supply, using fallback")
+        totalSupply = 100 // Fallback
+      }
+
+      const tokenIds: number[] = []
+      for (let i = 1; i <= Math.min(count, totalSupply, 50); i++) {
+        tokenIds.push(i)
+      }
+
+      // Fetch each NFT
+      for (const tokenId of tokenIds) {
+        try {
+          const nft = await this.fetchNFTByTokenId(contractAddress, tokenId)
+          if (nft) {
+            nfts.push(nft)
+          }
+        } catch (error) {
+          console.log("[v0] Failed to fetch token", tokenId, "continuing...")
+          continue
+        }
+      }
+
+      console.log("[v0] Successfully fetched", nfts.length, "NFTs")
+      return nfts
+    } catch (error) {
+      console.error("[v0] Error fetching collection NFTs:", error)
       return []
     }
   }

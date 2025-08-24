@@ -159,7 +159,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-yellow-400 font-medium">When is the metaverse game launching?</p>
-                    <p className="text-gray-400">We're targeting Q4 2024 for the beta release.</p>
+                    <p className="text-gray-400">We're targeting Q3 2025 for the beta release.</p>
                   </div>
                   <div>
                     <p className="text-yellow-400 font-medium">How can I become a sponsor?</p>

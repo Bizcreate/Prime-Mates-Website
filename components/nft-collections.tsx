@@ -146,7 +146,7 @@ export function NFTCollections() {
 
                 <div className="flex justify-between items-center mb-4">
                   <div>
-                    <p className="text-xs text-gray-500">Floor Price</p>
+                    <p className="text-xs text-gray-500">Original Mint Price</p>
                     <p className="text-lg font-bold text-yellow-400">{collection.floorPrice}</p>
                   </div>
                   <div className="text-right">
@@ -190,7 +190,7 @@ export function NFTCollections() {
               <div className="text-gray-300">Holders</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-400 mb-2">150+</div>
+              <div className="text-3xl font-bold text-yellow-400 mb-2">15+</div>
               <div className="text-gray-300">ETH Volume</div>
             </div>
           </div>

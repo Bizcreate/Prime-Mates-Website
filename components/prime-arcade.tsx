@@ -3,19 +3,20 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Play, Coins, Trophy, Users, ExternalLink, Gamepad2, Wallet, Shield } from "lucide-react"
+import { Play, Coins, Trophy, Users, ExternalLink, Gamepad2, Wallet, Shield, Zap, Star, Gift } from "lucide-react"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
-// PMBC Contract Address (you'll need to provide the actual address)
-const PMBC_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890" // TODO: Replace with actual contract address
+// PMBC Contract Address
+const PMBC_CONTRACT_ADDRESS = "0x12662b6a2a424a0090b7d09401fb775a9b968898"
 
 export function PrimeArcade() {
   const [account, setAccount] = useState<string | null>(null)
   const [nftBalance, setNftBalance] = useState<number>(0)
   const [isHolder, setIsHolder] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
+  const { toast } = useToast()
 
   const arcadeFeatures = [
     {
@@ -150,17 +151,17 @@ export function PrimeArcade() {
       {/* Floating Shaka Coins */}
       <div className="absolute inset-0 overflow-hidden opacity-15">
         <img
-          src="/images/shaka-coin.png"
+          src="/golden-coin-with-shaka-hand-symbol.png"
           alt="Shaka Coin"
           className="absolute top-16 left-16 w-24 h-24 animate-pulse"
         />
         <img
-          src="/images/shaka-coin.png"
+          src="/golden-coin-with-shaka-hand-symbol.png"
           alt="Shaka Coin"
           className="absolute top-40 right-12 w-16 h-16 animate-pulse delay-500"
         />
         <img
-          src="/images/shaka-coin.png"
+          src="/golden-coin-with-shaka-hand-symbol.png"
           alt="Shaka Coin"
           className="absolute bottom-20 left-1/3 w-20 h-20 animate-pulse delay-1000"
         />
@@ -169,16 +170,52 @@ export function PrimeArcade() {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
           <div className="flex justify-center items-center mb-6">
-            <Image src="/images/shaka-coin.png" alt="Shaka Coin" width={80} height={80} className="mr-4" />
+            <img src="/golden-coin-with-shaka-hand-symbol.png" alt="Shaka Coin" className="w-20 h-20 mr-4" />
             <div>
               <h2 className="text-5xl font-black text-yellow-400">PRIME ARCADE</h2>
-              <p className="text-xl text-yellow-300">Play to Earn Shaka Tokens</p>
+              <p className="text-xl text-yellow-300">Play to Earn Gaming Platform</p>
             </div>
           </div>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            Experience the ultimate gaming destination where every game you play earns you Shaka tokens. Our all-in-one
-            arcade platform combines the best games with a rewarding token economy.
-          </p>
+
+          <div className="max-w-4xl mx-auto mb-8">
+            <p className="text-xl text-gray-300 mb-6">
+              Prime Arcade is our revolutionary gaming ecosystem where every game you play earns you real rewards. Built
+              on blockchain technology with our native Shaka token economy, it's the ultimate destination for
+              play-to-earn gaming.
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+              <Card className="bg-gray-900 border-yellow-400/30">
+                <CardContent className="p-6 text-center">
+                  <Zap className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-white mb-2">Instant Rewards</h3>
+                  <p className="text-gray-400 text-sm">
+                    Earn Shaka tokens immediately as you play - no waiting periods
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gray-900 border-yellow-400/30">
+                <CardContent className="p-6 text-center">
+                  <Star className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-white mb-2">Premium Games</h3>
+                  <p className="text-gray-400 text-sm">
+                    25+ high-quality games across multiple genres and difficulty levels
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gray-900 border-yellow-400/30">
+                <CardContent className="p-6 text-center">
+                  <Gift className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-white mb-2">NFT Holder Perks</h3>
+                  <p className="text-gray-400 text-sm">
+                    PMBC holders get 2x rewards, exclusive tournaments, and early access
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Wallet Connection & NFT Status */}
           <div className="mb-8">
@@ -344,6 +381,46 @@ export function PrimeArcade() {
                       Join tournaments for bigger rewards {isHolder && "(2x for holders!)"}
                     </p>
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Token Economy Explanation */}
+        <div className="mb-16">
+          <Card className="bg-gradient-to-r from-gray-900 to-black border-yellow-400/50">
+            <CardContent className="p-8">
+              <h3 className="text-3xl font-bold text-yellow-400 mb-6 text-center">The Shaka Token Economy</h3>
+              <div className="grid lg:grid-cols-2 gap-8">
+                <div>
+                  <h4 className="text-xl font-bold text-white mb-4">Current Phase: $GRIND Token</h4>
+                  <p className="text-gray-300 mb-4">
+                    We're launching with $GRIND, our in-game utility token that powers the Prime Arcade ecosystem.
+                    $GRIND tokens are earned through gameplay and can be used for tournaments, upgrades, and exclusive
+                    content.
+                  </p>
+                  <ul className="space-y-2 text-gray-400">
+                    <li>• Earn $GRIND by playing any arcade game</li>
+                    <li>• Use $GRIND for tournament entry fees</li>
+                    <li>• Purchase in-game upgrades and power-ups</li>
+                    <li>• Access exclusive holder-only content</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-xl font-bold text-white mb-4">Future: $SHAKA Main Token</h4>
+                  <p className="text-gray-300 mb-4">
+                    $SHAKA will be our main ecosystem token, launching with a strong liquidity pool funded by $GRIND
+                    activity. This ensures a solid foundation and sustainable tokenomics for the entire Prime Mates
+                    ecosystem.
+                  </p>
+                  <ul className="space-y-2 text-gray-400">
+                    <li>• Main ecosystem governance token</li>
+                    <li>• Cross-platform utility across all Prime Mates products</li>
+                    <li>• Staking rewards and yield farming</li>
+                    <li>• NFT marketplace transactions</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>

@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShoppingCart, Package, RefreshCw, Calendar, CalendarDays, Clock, Truck, CheckCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  ShoppingCart,
+  Package,
+  RefreshCw,
+  Calendar,
+  CalendarDays,
+  Clock,
+  Truck,
+  CheckCircle,
+  ImageIcon,
+  Settings,
+} from "lucide-react"
+import Link from "next/link"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -24,6 +37,65 @@ export default function DashboardPage() {
     <div className="flex-1 space-y-6 p-8 pt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard Overview</h2>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-purple-100">Gesture Overlays</CardTitle>
+              <div className="text-2xl font-bold mt-2">Manage NFT Gestures</div>
+            </div>
+            <ImageIcon className="h-8 w-8 text-purple-200" />
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/gestures">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full bg-white/20 hover:bg-white/30 text-white border-0"
+              >
+                Manage Overlays
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-indigo-100">Tapstitch Integration</CardTitle>
+              <div className="text-2xl font-bold mt-2">Merch Designs</div>
+            </div>
+            <Settings className="h-8 w-8 text-indigo-200" />
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/tapstitch">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full bg-white/20 hover:bg-white/30 text-white border-0"
+              >
+                Manage Designs
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-pink-500 to-pink-600 text-white border-0">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-sm font-medium text-pink-100">WooCommerce Sync</CardTitle>
+              <div className="text-2xl font-bold mt-2">Product Sync</div>
+            </div>
+            <RefreshCw className="h-8 w-8 text-pink-200" />
+          </CardHeader>
+          <CardContent>
+            <Button variant="secondary" size="sm" className="w-full bg-white/20 hover:bg-white/30 text-white border-0">
+              Sync Products
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

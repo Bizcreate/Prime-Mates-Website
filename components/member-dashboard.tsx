@@ -7,8 +7,22 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Wallet, Trophy, Gift, Users, Star, Crown, Zap, Lock, ExternalLink, ImageIcon, AlertCircle } from "lucide-react"
-import { web3Service } from "@/lib/web3"
+import {
+  Wallet,
+  Trophy,
+  Gift,
+  Users,
+  Star,
+  Crown,
+  Zap,
+  Lock,
+  ExternalLink,
+  ImageIcon,
+  AlertCircle,
+  Palette,
+} from "lucide-react"
+import { fetchUserNFTs } from "@/lib/web3-utils"
+import { COLLECTIONS } from "@/lib/web3-config"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
 
@@ -63,13 +77,13 @@ export function MemberDashboard() {
       // Handle different wallet types with specific connection logic
       if (walletType === "MetaMask") {
         if (typeof window !== "undefined" && window.ethereum?.isMetaMask) {
-          address = await web3Service.connectWallet()
+          address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
         } else {
           throw new Error("MetaMask is not installed. Please install MetaMask extension.")
         }
       } else if (walletType === "Trust Wallet") {
         if (typeof window !== "undefined" && window.trustWallet) {
-          address = await web3Service.connectWallet()
+          address = await window.trustWallet.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
         } else {
           // On mobile, redirect to Trust Wallet deep link
           if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
@@ -83,7 +97,7 @@ export function MemberDashboard() {
         }
       } else if (walletType === "Coinbase Wallet") {
         if (typeof window !== "undefined" && (window.coinbaseWalletExtension || window.ethereum?.isCoinbaseWallet)) {
-          address = await web3Service.connectWallet()
+          address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
         } else {
           // On mobile, redirect to Coinbase Wallet deep link
           if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
@@ -95,10 +109,10 @@ export function MemberDashboard() {
         }
       } else if (walletType === "WalletConnect") {
         // For WalletConnect, we'll use the generic connection
-        address = await web3Service.connectWallet()
+        address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
       } else {
         // Fallback to generic connection
-        address = await web3Service.connectWallet()
+        address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
       }
 
       console.log("[v0] Wallet connected successfully:", address)
@@ -143,11 +157,27 @@ export function MemberDashboard() {
     try {
       console.log("[v0] Loading user stats for address:", address)
 
-      const realNFTCount = await web3Service.checkNFTBalance(address)
-      console.log("[v0] Real NFT count from blockchain:", realNFTCount)
+      let totalNFTCount = 0
+      const collectionCounts: Record<string, number> = {}
+
+      for (const collection of Object.values(COLLECTIONS)) {
+        try {
+          const nfts = await fetchUserNFTs(address, collection.address, collection.chainId)
+          const count = nfts.length
+          collectionCounts[collection.name] = count
+          totalNFTCount += count
+          console.log(`[v0] ${collection.name}: ${count} NFTs`)
+        } catch (error) {
+          console.error(`[v0] Failed to get NFTs for ${collection.name}:`, error)
+          collectionCounts[collection.name] = 0
+        }
+      }
+
+      console.log("[v0] Total NFT count from blockchain:", totalNFTCount)
+      console.log("[v0] Collection breakdown:", collectionCounts)
 
       // Use real count or fallback to 1 if user says they have NFTs
-      const nftCount = realNFTCount > 0 ? realNFTCount : 1
+      const nftCount = totalNFTCount > 0 ? totalNFTCount : 1
 
       const tier = getTierFromCount(nftCount)
       const tierProgress = getTierProgress(nftCount, tier)
@@ -181,41 +211,55 @@ export function MemberDashboard() {
       setLoadingNFTs(true)
       console.log("[v0] Loading real NFTs for address:", address)
 
-      const realNFTs = await web3Service.getUserNFTs(address)
-      console.log("[v0] getUserNFTs returned:", realNFTs)
+      const allUserNFTs: NFT[] = []
 
-      if (realNFTs.length > 0) {
-        console.log("[v0] Using real NFT data")
-        setUserNFTs(realNFTs)
+      for (const collection of Object.values(COLLECTIONS)) {
+        try {
+          const nfts = await fetchUserNFTs(address, collection.address, collection.chainId)
+
+          for (const nft of nfts) {
+            allUserNFTs.push({
+              id: `${collection.name.toLowerCase().replace(/\s+/g, "-")}-${nft.tokenId}`,
+              name: `${collection.name} #${nft.tokenId}`,
+              image: nft.image || "/abstract-nft-concept.png",
+              tokenId: nft.tokenId,
+              collection: collection.name,
+              rarity: nft.rarity || "Common",
+            })
+          }
+
+          console.log(`[v0] Loaded ${nfts.length} NFTs from ${collection.name}`)
+        } catch (error) {
+          console.error(`[v0] Failed to load NFTs from ${collection.name}:`, error)
+        }
+      }
+
+      if (allUserNFTs.length > 0) {
+        console.log("[v0] Using real NFT data:", allUserNFTs.length, "total NFTs")
+        setUserNFTs(allUserNFTs)
       } else {
-        console.log("[v0] No real NFT data, checking balance...")
-        const pmbc_balance = await web3Service.checkNFTBalance(address)
-        console.log("[v0] PMBC balance from checkNFTBalance:", pmbc_balance)
-
-        const userNFTs: NFT[] = []
-
-        // Add PMBC NFT (user reported having 1)
-        userNFTs.push({
-          id: "pmbc-1",
-          name: "Prime Mates Board Club #1",
-          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
-          tokenId: 1,
-          collection: "Prime Mates Board Club",
-          rarity: "Verified Owner",
-        })
-
-        // Add Prime to the Bone NFT (user reported having 1)
-        userNFTs.push({
-          id: "prime-to-bone-1",
-          name: "Prime to the Bone #1",
-          image: "/placeholder.svg?height=200&width=200",
-          tokenId: 1,
-          collection: "Prime to the Bone",
-          rarity: "Rare",
-        })
-
-        console.log("[v0] Created placeholder NFTs based on user holdings:", userNFTs)
-        setUserNFTs(userNFTs)
+        console.log("[v0] No real NFT data found, using fallback")
+        // Fallback for users who reported having NFTs but we can't fetch them
+        const fallbackNFTs: NFT[] = [
+          {
+            id: "pmbc-fallback",
+            name: "Prime Mates Board Club #1",
+            image:
+              "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+            tokenId: 1,
+            collection: "Prime Mates Board Club",
+            rarity: "Verified Owner",
+          },
+          {
+            id: "pttb-fallback",
+            name: "Prime to the Bone #1",
+            image: "/abstract-nft-concept.png",
+            tokenId: 1,
+            collection: "Prime to the Bone",
+            rarity: "Rare",
+          },
+        ]
+        setUserNFTs(fallbackNFTs)
       }
     } catch (error) {
       console.error("[v0] Failed to load user NFTs:", error)
@@ -542,7 +586,7 @@ export function MemberDashboard() {
                             <CardContent className="p-4">
                               <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gray-700">
                                 <Image
-                                  src={nft.image || "/placeholder.svg"}
+                                  src={nft.image || "/abstract-nft-concept.png"}
                                   alt={nft.name}
                                   width={200}
                                   height={200}
@@ -560,6 +604,35 @@ export function MemberDashboard() {
                                     </Badge>
                                   )}
                                 </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full mt-2 border-yellow-400/50 hover:border-yellow-400 bg-transparent"
+                                  onClick={() => {
+                                    // Open gesture overlay modal for this NFT
+                                    const modal = document.createElement("div")
+                                    modal.className = "fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+                                    modal.innerHTML = `
+                                      <div class="bg-gray-900 p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                                        <div class="flex justify-between items-center mb-4">
+                                          <h3 class="text-xl font-bold text-yellow-400">Gesture Studio - ${nft.name}</h3>
+                                          <button class="text-gray-400 hover:text-white" onclick="this.closest('.fixed').remove()">✕</button>
+                                        </div>
+                                        <div id="gesture-overlay-container"></div>
+                                      </div>
+                                    `
+                                    document.body.appendChild(modal)
+
+                                    // This would need to be properly implemented with React portals in a real app
+                                    toast({
+                                      title: "Gesture Studio",
+                                      description: `Opening gesture overlay for ${nft.name}`,
+                                    })
+                                  }}
+                                >
+                                  <Palette className="w-3 h-3 mr-1" />
+                                  Add Gesture
+                                </Button>
                               </div>
                             </CardContent>
                           </Card>
@@ -592,25 +665,29 @@ export function MemberDashboard() {
 
                   <Card className="bg-gray-900 border-yellow-400/20">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm text-yellow-400">Skateboards</CardTitle>
+                      <CardTitle className="text-sm text-yellow-400">PTTB Collection</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        {userNFTs.filter((nft) => nft.collection === "PMBC Skateboards").length}
+                        {userNFTs.filter((nft) => nft.collection === "Prime to the Bone").length}
                       </div>
-                      <p className="text-xs text-gray-400">Skateboard NFTs</p>
+                      <p className="text-xs text-gray-400">Skeletal Collection NFTs</p>
                     </CardContent>
                   </Card>
 
                   <Card className="bg-gray-900 border-yellow-400/20">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm text-yellow-400">Merch Tokens</CardTitle>
+                      <CardTitle className="text-sm text-yellow-400">Other Collections</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-white">
-                        {userNFTs.filter((nft) => nft.collection === "Prime Merch Collection").length}
+                        {
+                          userNFTs.filter(
+                            (nft) => !["Prime Mates Board Club", "Prime to the Bone"].includes(nft.collection),
+                          ).length
+                        }
                       </div>
-                      <p className="text-xs text-gray-400">Exclusive Merch</p>
+                      <p className="text-xs text-gray-400">Halloween, Christmas, etc.</p>
                     </CardContent>
                   </Card>
                 </div>

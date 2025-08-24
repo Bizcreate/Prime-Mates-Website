@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Heart, Star, Shirt, Palette, Crown } from "lucide-react"
+import { ShoppingCart, Heart, Star, Shirt } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useCart } from "@/context/cart-context"
 import type { Product } from "@/lib/db"
@@ -107,18 +107,10 @@ export function Merch() {
             Rep the culture with our premium collection of apparel and gear. From classic tees to custom designs -
             express your Prime Mates identity in style. NFT holders get exclusive access to premium designs!
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex justify-center">
             <Button size="lg" className="bg-yellow-400 text-black hover:bg-yellow-300 font-bold rounded-lg">
               <Shirt className="mr-2 h-5 w-5" />
               Shop All Products
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent font-bold rounded-lg"
-            >
-              <Palette className="mr-2 h-5 w-5" />
-              Custom Designer
             </Button>
           </div>
         </div>
@@ -223,35 +215,6 @@ export function Merch() {
             <p className="text-gray-400 text-lg">No products found in this category.</p>
           </div>
         )}
-
-        {/* Custom Design Platform */}
-        <div className="mb-16">
-          <Card className="bg-gradient-to-r from-yellow-400 to-yellow-600 border-0">
-            <CardContent className="p-8 text-center">
-              <div className="flex justify-center mb-4">
-                <Palette className="h-16 w-16 text-black" />
-              </div>
-              <h3 className="text-3xl font-bold text-black mb-4">CUSTOM MERCH DESIGNER</h3>
-              <p className="text-black/80 mb-6 max-w-2xl mx-auto">
-                Create your own unique Prime Mates merch! Upload your designs or use our exclusive NFT holder artwork
-                library. Print-on-demand with premium quality materials.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button className="bg-black text-yellow-400 hover:bg-gray-900 font-bold rounded-lg">
-                  <Palette className="mr-2 h-5 w-5" />
-                  Start Designing
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-black text-black hover:bg-black hover:text-yellow-400 bg-transparent font-bold rounded-lg"
-                >
-                  <Crown className="mr-2 h-5 w-5" />
-                  NFT Holder Access
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <div className="text-center">
           <h3 className="text-3xl font-bold mb-8 text-yellow-400">Shop by Category</h3>
