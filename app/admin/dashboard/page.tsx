@@ -64,19 +64,19 @@ export default function DashboardPage() {
         <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-indigo-100">Tapstitch Integration</CardTitle>
-              <div className="text-2xl font-bold mt-2">Merch Designs</div>
+              <CardTitle className="text-sm font-medium text-indigo-100">WooCommerce Integration</CardTitle>
+              <div className="text-2xl font-bold mt-2">Merch Products</div>
             </div>
             <Settings className="h-8 w-8 text-indigo-200" />
           </CardHeader>
           <CardContent>
-            <Link href="/admin/tapstitch">
+            <Link href="/admin/woocommerce">
               <Button
                 variant="secondary"
                 size="sm"
                 className="w-full bg-white/20 hover:bg-white/30 text-white border-0"
               >
-                Manage Designs
+                Manage Products
               </Button>
             </Link>
           </CardContent>

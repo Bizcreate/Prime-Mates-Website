@@ -1,4 +1,4 @@
-// WooCommerce Integration Guide and Utilities
+// WooCommerce Integration Utilities (Tapstitch-free)
 
 export interface WooCommerceConfig {
   url: string
@@ -7,19 +7,11 @@ export interface WooCommerceConfig {
   version: string
 }
 
-export interface TapstitchConfig {
-  apiKey: string
-  webhookSecret: string
-  baseUrl: string
-}
-
 export class WooCommerceIntegration {
   private config: WooCommerceConfig
-  private tapstitchConfig: TapstitchConfig
 
-  constructor(config: WooCommerceConfig, tapstitchConfig: TapstitchConfig) {
+  constructor(config: WooCommerceConfig) {
     this.config = config
-    this.tapstitchConfig = tapstitchConfig
   }
 
   // Fetch products from WooCommerce
@@ -70,29 +62,6 @@ export class WooCommerceIntegration {
     // })
   }
 
-  // Upload design to Tapstitch
-  async uploadDesignToTapstitch(designData: {
-    name: string
-    description: string
-    imageUrl: string
-    productType: string
-  }) {
-    const response = await fetch(`${this.tapstitchConfig.baseUrl}/api/designs`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.tapstitchConfig.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(designData),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Tapstitch API error: ${response.statusText}`)
-    }
-
-    return response.json()
-  }
-
   // Handle webhook from WooCommerce
   async handleWooCommerceWebhook(payload: any, signature: string) {
     // Verify webhook signature
@@ -118,25 +87,19 @@ export const WOOCOMMERCE_SETUP_GUIDE = {
     "WOOCOMMERCE_URL=https://your-store.com",
     "WOOCOMMERCE_CONSUMER_KEY=ck_your_consumer_key",
     "WOOCOMMERCE_CONSUMER_SECRET=cs_your_consumer_secret",
-    "TAPSTITCH_API_KEY=your_tapstitch_api_key",
-    "TAPSTITCH_WEBHOOK_SECRET=your_webhook_secret",
-    "TAPSTITCH_BASE_URL=https://api.tapstitch.com",
   ],
 
   steps: [
     "1. Create WooCommerce REST API credentials in your WordPress admin",
     "2. Set up webhook endpoints in WooCommerce for product events",
-    "3. Configure Tapstitch API access and webhook endpoints",
-    "4. Add environment variables to your Vercel project",
-    "5. Test the integration with a sample product sync",
-    "6. Set up automated sync schedules using Vercel Cron Jobs",
+    "3. Add environment variables to your Vercel project",
+    "4. Test the integration with a sample product sync",
+    "5. Set up automated sync schedules using Vercel Cron Jobs",
   ],
 
   webhookEndpoints: [
     "POST /api/webhooks/woocommerce - Handle WooCommerce product updates",
-    "POST /api/webhooks/tapstitch - Handle Tapstitch design updates",
-    "GET /api/sync/products - Manual product sync trigger",
-    "POST /api/designs/upload - Upload custom designs to Tapstitch",
+    "GET /api/woocommerce/sync - Manual product sync trigger",
   ],
 
   recommendedArchitecture: {

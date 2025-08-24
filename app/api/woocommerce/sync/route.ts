@@ -1,21 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { WooCommerceIntegration } from "@/lib/woocommerce-integration"
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const woocommerce = new WooCommerceIntegration(
-      {
-        url: process.env.WOOCOMMERCE_URL!,
-        consumerKey: process.env.WOOCOMMERCE_CONSUMER_KEY!,
-        consumerSecret: process.env.WOOCOMMERCE_CONSUMER_SECRET!,
-        version: "v3",
-      },
-      {
-        apiKey: process.env.TAPSTITCH_API_KEY!,
-        webhookSecret: process.env.TAPSTITCH_WEBHOOK_SECRET!,
-        baseUrl: process.env.TAPSTITCH_BASE_URL!,
-      },
-    )
+    const woocommerce = new WooCommerceIntegration({
+      url: process.env.WOOCOMMERCE_URL!,
+      consumerKey: process.env.WOOCOMMERCE_CONSUMER_KEY!,
+      consumerSecret: process.env.WOOCOMMERCE_CONSUMER_SECRET!,
+      version: "v3",
+    })
 
     // Fetch products from WooCommerce
     const products = await woocommerce.fetchProducts()
@@ -34,10 +27,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Synced ${products.length} products`,
+      products: products,
       results: syncResults,
     })
   } catch (error) {
     console.error("WooCommerce sync error:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
+}
+
+export async function POST(request: NextRequest) {
+  return GET()
 }
