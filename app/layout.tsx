@@ -5,7 +5,7 @@ import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/context/cart-context"
-import { WalletProvider } from "@/contexts/wallet-context" // Import WalletProvider
+import { WalletProvider } from "@/contexts/simple-wallet-context"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -26,8 +26,6 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <WalletProvider>
-            {" "}
-            {/* Add WalletProvider to wrap entire app */}
             <CartProvider>
               <Navigation />
               <div className="pt-20">{children}</div>
