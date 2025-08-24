@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, ExternalLink, Loader2, Wallet, Palette } from "lucide-react"
-import { fetchCollectionNFTs, fetchNFTByTokenId, fetchUserNFTs, type NFTMetadata } from "@/lib/web3-utils"
+import { Search, ExternalLink, Loader2, Palette } from "lucide-react"
+import { fetchCollectionNFTs, fetchNFTByTokenId } from "@/lib/web3-utils"
+import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
 
 const collections = [
   {
@@ -54,42 +55,11 @@ export default function GalleryPage() {
   const [selectedCollection, setSelectedCollection] = useState(collections[0])
   const [searchTokenId, setSearchTokenId] = useState("")
   const [nfts, setNfts] = useState<NFTData[]>([])
-  const [userNFTs, setUserNFTs] = useState<NFTMetadata[]>([])
-  const [walletAddress, setWalletAddress] = useState("")
-  const [loading, setLoading] = useState(false)
   const [searchedNFT, setSearchedNFT] = useState<NFTData | null>(null)
   const [activeTab, setActiveTab] = useState("collections")
+  const [loading, setLoading] = useState(false)
 
-  const connectWallet = async () => {
-    try {
-      if (typeof window.ethereum !== "undefined") {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
-        if (accounts.length > 0) {
-          const address = accounts[0]
-          setWalletAddress(address)
-          await loadUserNFTs(address)
-        }
-      } else {
-        alert("Please install MetaMask to view your collection")
-      }
-    } catch (error) {
-      console.error("Error connecting wallet:", error)
-    }
-  }
-
-  const loadUserNFTs = async (address: string) => {
-    setLoading(true)
-    try {
-      console.log("[v0] Loading user NFTs for address:", address)
-      const userTokens = await fetchUserNFTs(address)
-      setUserNFTs(userTokens)
-      console.log("[v0] Found", userTokens.length, "NFTs in user wallet")
-    } catch (error) {
-      console.error("[v0] Error loading user NFTs:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { address: walletAddress, isConnected, userNFTs, loading: walletLoading } = useWallet()
 
   const loadCollectionNFTs = async (collection: (typeof collections)[0]) => {
     setLoading(true)
@@ -442,14 +412,8 @@ export default function GalleryPage() {
                 Connect your wallet to view your Prime Mates NFTs across all collections
               </p>
 
-              {!walletAddress ? (
-                <Button
-                  onClick={connectWallet}
-                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:opacity-90 text-black font-semibold px-8 py-3"
-                >
-                  <Wallet className="w-5 h-5 mr-2" />
-                  Connect Wallet
-                </Button>
+              {!isConnected ? (
+                <WalletConnectButton className="px-8 py-3" />
               ) : (
                 <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8">
                   <p className="text-sm text-gray-400 mb-2">Connected Wallet</p>
@@ -459,7 +423,7 @@ export default function GalleryPage() {
               )}
             </div>
 
-            {loading ? (
+            {walletLoading ? (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
                 <span className="ml-2 text-gray-400">Loading your NFTs...</span>
@@ -549,7 +513,7 @@ export default function GalleryPage() {
                   )
                 })}
               </div>
-            ) : walletAddress ? (
+            ) : isConnected ? (
               <div className="text-center py-20">
                 <div className="text-gray-400 mb-4">No Prime Mates NFTs found in your wallet</div>
                 <p className="text-sm text-gray-500">
