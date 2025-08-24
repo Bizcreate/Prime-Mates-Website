@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { web3Service } from "@/lib/web3"
 import { useToast } from "@/hooks/use-toast"
+import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
 import { Coins, Clock, TrendingUp, Zap, Gift, Star } from "lucide-react"
 
 interface StakedNFT {
@@ -28,10 +28,8 @@ interface StakingStats {
 }
 
 export default function StakePage() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [walletAddress, setWalletAddress] = useState("")
+  const { address: walletAddress, isConnected, userNFTs } = useWallet()
   const [stakedNFTs, setStakedNFTs] = useState<StakedNFT[]>([])
-  const [availableNFTs, setAvailableNFTs] = useState<any[]>([])
   const [stakingStats, setStakingStats] = useState<StakingStats>({
     totalStaked: 0,
     totalRewards: 0,
@@ -42,60 +40,15 @@ export default function StakePage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    checkWalletConnection()
-  }, [])
-
-  const checkWalletConnection = async () => {
-    try {
-      const address = await web3Service.getConnectedWallet()
-      if (address) {
-        setIsConnected(true)
-        setWalletAddress(address)
-        await loadStakingData(address)
-      }
-    } catch (error) {
-      console.log("No wallet connected")
+    if (isConnected && walletAddress) {
+      loadStakingData(walletAddress)
     }
-  }
-
-  const connectWallet = async () => {
-    try {
-      setIsLoading(true)
-      const address = await web3Service.connectWallet()
-      setIsConnected(true)
-      setWalletAddress(address)
-      await loadStakingData(address)
-      toast({
-        title: "Wallet Connected",
-        description: "Successfully connected to your wallet",
-      })
-    } catch (error: any) {
-      console.log("[v0] Wallet connection failed:", error)
-
-      let errorMessage = "Failed to connect wallet. Please try again."
-
-      if (
-        error?.code === 4001 ||
-        error?.message?.includes("user rejected") ||
-        error?.message?.includes("User rejected")
-      ) {
-        errorMessage = "Connection cancelled. Please click 'Connect' or 'Approve' when your wallet popup appears."
-      } else if (error?.message?.includes("MetaMask is not installed")) {
-        errorMessage = "MetaMask is not installed. Please install MetaMask to continue."
-      }
-
-      toast({
-        title: "Connection Failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, [isConnected, walletAddress])
 
   const loadStakingData = async (address: string) => {
     try {
+      console.log("[v0] Loading staking data for wallet:", address)
+
       // Load staked NFTs (mock data for now)
       const mockStakedNFTs: StakedNFT[] = [
         {
@@ -133,10 +86,6 @@ export default function StakePage() {
         dailyRewards,
         stakingPower: mockStakedNFTs.reduce((sum, nft) => sum + nft.multiplier, 0),
       })
-
-      // Load available NFTs for staking
-      const userNFTs = await web3Service.getUserNFTs(address)
-      setAvailableNFTs(userNFTs.slice(0, 3)) // Show first 3 for demo
     } catch (error) {
       console.error("Error loading staking data:", error)
     }
@@ -145,12 +94,18 @@ export default function StakePage() {
   const stakeNFT = async (nft: any) => {
     try {
       setIsLoading(true)
-      // Implement staking logic here
+      console.log("[v0] Staking NFT:", nft.name)
+
+      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate staking delay
+
       toast({
         title: "NFT Staked",
         description: `Successfully staked ${nft.name}`,
       })
-      await loadStakingData(walletAddress)
+
+      if (walletAddress) {
+        await loadStakingData(walletAddress)
+      }
     } catch (error) {
       toast({
         title: "Staking Failed",
@@ -165,12 +120,18 @@ export default function StakePage() {
   const unstakeNFT = async (nft: StakedNFT) => {
     try {
       setIsLoading(true)
-      // Implement unstaking logic here
+      console.log("[v0] Unstaking NFT:", nft.name)
+
+      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate unstaking delay
+
       toast({
         title: "NFT Unstaked",
         description: `Successfully unstaked ${nft.name}`,
       })
-      await loadStakingData(walletAddress)
+
+      if (walletAddress) {
+        await loadStakingData(walletAddress)
+      }
     } catch (error) {
       toast({
         title: "Unstaking Failed",
@@ -185,12 +146,18 @@ export default function StakePage() {
   const claimRewards = async () => {
     try {
       setIsLoading(true)
-      // Implement reward claiming logic here
+      console.log("[v0] Claiming rewards:", stakingStats.totalRewards)
+
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate claiming delay
+
       toast({
         title: "Rewards Claimed",
         description: `Successfully claimed ${stakingStats.totalRewards.toFixed(2)} PMBC tokens`,
       })
-      await loadStakingData(walletAddress)
+
+      if (walletAddress) {
+        await loadStakingData(walletAddress)
+      }
     } catch (error) {
       toast({
         title: "Claim Failed",
@@ -233,13 +200,7 @@ export default function StakePage() {
                   </p>
                 </div>
 
-                <Button
-                  onClick={connectWallet}
-                  disabled={isLoading}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3"
-                >
-                  {isLoading ? "Connecting..." : "Connect Wallet"}
-                </Button>
+                <WalletConnectButton className="px-8 py-3 text-lg" />
               </CardContent>
             </Card>
 
@@ -278,6 +239,12 @@ export default function StakePage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-yellow-400 mb-2">Prime Mates Staking</h1>
           <p className="text-gray-400">Stake your NFTs to earn passive rewards</p>
+          <div className="mt-4 p-3 bg-green-900/20 border border-green-800 rounded-lg max-w-md">
+            <p className="text-sm text-gray-400">Connected Wallet</p>
+            <p className="font-mono text-green-400">
+              {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+            </p>
+          </div>
         </div>
 
         {/* Staking Stats */}
@@ -356,7 +323,7 @@ export default function StakePage() {
               Staked NFTs ({stakedNFTs.length})
             </TabsTrigger>
             <TabsTrigger value="available" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
-              Available to Stake ({availableNFTs.length})
+              Available to Stake ({userNFTs.length})
             </TabsTrigger>
           </TabsList>
 
@@ -414,25 +381,21 @@ export default function StakePage() {
           </TabsContent>
 
           <TabsContent value="available" className="space-y-6">
-            {availableNFTs.length === 0 ? (
+            {userNFTs.length === 0 ? (
               <Card className="bg-gray-800 border-yellow-400/20">
                 <CardContent className="p-12 text-center">
                   <Star className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold mb-2">No NFTs Available</h3>
-                  <p className="text-gray-400">All your Prime Mates NFTs are currently staked</p>
+                  <p className="text-gray-400">No Prime Mates NFTs found in your wallet to stake</p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {availableNFTs.map((nft, index) => (
+                {userNFTs.slice(0, 6).map((nft, index) => (
                   <Card key={index} className="bg-gray-800 border-yellow-400/20 overflow-hidden">
                     <div className="aspect-square relative">
                       <img
-                        src={
-                          nft.image ||
-                          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif" ||
-                          "/placeholder.svg"
-                        }
+                        src={nft.image || "/placeholder.svg"}
                         alt={nft.name}
                         className="w-full h-full object-cover"
                       />

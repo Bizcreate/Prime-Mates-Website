@@ -1,8 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { ConnectButton, useActiveAccount, useDisconnect } from "thirdweb/react"
-import { client } from "@/lib/thirdweb-client"
+import { useActiveAccount, useConnect, useDisconnect } from "thirdweb/react"
 import { fetchUserNFTs, type NFTMetadata } from "@/lib/web3-utils"
 
 interface WalletContextType {
@@ -78,17 +77,39 @@ export function useWallet() {
 }
 
 export function WalletConnectButton({ className = "" }: { className?: string }) {
+  const account = useActiveAccount()
+  const { connect } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  const handleConnect = async () => {
+    try {
+      console.log("[v0] Attempting to connect wallet...")
+      // Use a simple wallet connection approach
+      if (typeof window !== "undefined" && window.ethereum) {
+        await window.ethereum.request({ method: "eth_requestAccounts" })
+      }
+    } catch (error) {
+      console.error("[v0] Wallet connection failed:", error)
+    }
+  }
+
+  if (account) {
+    return (
+      <button
+        onClick={() => disconnect()}
+        className={`bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 px-6 py-2 rounded-lg ${className}`}
+      >
+        {account.address?.slice(0, 6)}...{account.address?.slice(-4)}
+      </button>
+    )
+  }
+
   return (
-    <ConnectButton
-      client={client}
-      theme="dark"
-      connectButton={{
-        label: "Connect Wallet",
-        className: `bg-gradient-to-r from-yellow-500 to-yellow-600 hover:opacity-90 text-black font-semibold px-6 py-2 rounded-lg ${className}`,
-      }}
-      detailsButton={{
-        className: "bg-gray-800 border border-gray-700 text-white hover:bg-gray-700",
-      }}
-    />
+    <button
+      onClick={handleConnect}
+      className={`bg-gradient-to-r from-yellow-500 to-yellow-600 hover:opacity-90 text-black font-semibold px-6 py-2 rounded-lg ${className}`}
+    >
+      Connect Wallet
+    </button>
   )
 }

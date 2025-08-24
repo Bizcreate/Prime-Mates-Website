@@ -1,8 +1,13 @@
+"use client"
+
 import { Games } from "@/components/games"
 import { PrimeArcade } from "@/components/prime-arcade"
 import { Footer } from "@/components/footer"
+import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
 
 const PrimeArcadeHero = () => {
+  const { isConnected, address } = useWallet()
+
   return (
     <section className="relative py-20 px-4 bg-gradient-to-br from-gray-900 via-black to-gray-800">
       <div className="max-w-6xl mx-auto text-center">
@@ -57,9 +62,17 @@ const PrimeArcadeHero = () => {
           </div>
         </div>
 
-        <button className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-8 py-4 rounded-xl font-bold text-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-          🔗 Connect Wallet
-        </button>
+        {!isConnected ? (
+          <WalletConnectButton className="px-8 py-4 text-lg" />
+        ) : (
+          <div className="bg-green-900/20 border border-green-800 rounded-xl p-4 max-w-md mx-auto">
+            <p className="text-green-400 font-semibold mb-2">🎮 Wallet Connected</p>
+            <p className="text-sm text-gray-300 font-mono">
+              {address?.slice(0, 6)}...{address?.slice(-4)}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Ready to earn rewards!</p>
+          </div>
+        )}
       </div>
     </section>
   )
