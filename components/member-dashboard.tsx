@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useWallet } from "@/contexts/wallet-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -52,14 +53,21 @@ const tierInfo = {
 }
 
 export function MemberDashboard() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [walletAddress, setWalletAddress] = useState("")
+  const { isConnected, walletAddress, connectWallet: connectWalletContext, disconnect } = useWallet()
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [userNFTs, setUserNFTs] = useState<NFT[]>([])
   const [loadingNFTs, setLoadingNFTs] = useState(false)
   const [showConnectionGuide, setShowConnectionGuide] = useState(false)
   const [showWalletModal, setShowWalletModal] = useState(false)
+
+  useEffect(() => {
+    if (isConnected && walletAddress) {
+      console.log("[v0] Wallet connected in dashboard, loading user data for:", walletAddress)
+      loadUserStats(walletAddress)
+      loadUserNFTs(walletAddress)
+    }
+  }, [isConnected, walletAddress])
 
   const connectWallet = () => {
     setShowWalletModal(true)
@@ -72,56 +80,9 @@ export function MemberDashboard() {
       setShowConnectionGuide(true)
       console.log("[v0] Starting wallet connection for:", walletType)
 
-      let address: string
+      await connectWalletContext()
 
-      // Handle different wallet types with specific connection logic
-      if (walletType === "MetaMask") {
-        if (typeof window !== "undefined" && window.ethereum?.isMetaMask) {
-          address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
-        } else {
-          throw new Error("MetaMask is not installed. Please install MetaMask extension.")
-        }
-      } else if (walletType === "Trust Wallet") {
-        if (typeof window !== "undefined" && window.trustWallet) {
-          address = await window.trustWallet.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
-        } else {
-          // On mobile, redirect to Trust Wallet deep link
-          if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            window.location.href = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(window.location.href)}`
-            return
-          } else {
-            throw new Error(
-              "Trust Wallet is not installed. Please install Trust Wallet or open this page in the Trust Wallet browser.",
-            )
-          }
-        }
-      } else if (walletType === "Coinbase Wallet") {
-        if (typeof window !== "undefined" && (window.coinbaseWalletExtension || window.ethereum?.isCoinbaseWallet)) {
-          address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
-        } else {
-          // On mobile, redirect to Coinbase Wallet deep link
-          if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            window.location.href = `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(window.location.href)}`
-            return
-          } else {
-            throw new Error("Coinbase Wallet is not installed. Please install Coinbase Wallet extension.")
-          }
-        }
-      } else if (walletType === "WalletConnect") {
-        // For WalletConnect, we'll use the generic connection
-        address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
-      } else {
-        // Fallback to generic connection
-        address = await window.ethereum.request({ method: "eth_requestAccounts" }).then((accounts) => accounts[0])
-      }
-
-      console.log("[v0] Wallet connected successfully:", address)
-
-      setWalletAddress(address)
-      setIsConnected(true)
       setShowConnectionGuide(false)
-      await loadUserStats(address)
-      await loadUserNFTs(address)
       toast({
         title: "Wallet Connected",
         description: `Successfully connected to ${walletType}`,
@@ -162,11 +123,14 @@ export function MemberDashboard() {
 
       for (const collection of Object.values(COLLECTIONS)) {
         try {
+          console.log(
+            `[v0] Fetching NFTs for ${collection.name} at ${collection.address} on chain ${collection.chainId}`,
+          )
           const nfts = await fetchUserNFTs(address, collection.address, collection.chainId)
           const count = nfts.length
           collectionCounts[collection.name] = count
           totalNFTCount += count
-          console.log(`[v0] ${collection.name}: ${count} NFTs`)
+          console.log(`[v0] ${collection.name}: ${count} NFTs found`)
         } catch (error) {
           console.error(`[v0] Failed to get NFTs for ${collection.name}:`, error)
           collectionCounts[collection.name] = 0
@@ -176,8 +140,7 @@ export function MemberDashboard() {
       console.log("[v0] Total NFT count from blockchain:", totalNFTCount)
       console.log("[v0] Collection breakdown:", collectionCounts)
 
-      // Use real count or fallback to 1 if user says they have NFTs
-      const nftCount = totalNFTCount > 0 ? totalNFTCount : 1
+      const nftCount = totalNFTCount
 
       const tier = getTierFromCount(nftCount)
       const tierProgress = getTierProgress(nftCount, tier)
@@ -194,14 +157,12 @@ export function MemberDashboard() {
       })
     } catch (error) {
       console.error("[v0] Failed to load user stats:", error)
-      const fallbackCount = 2 // User reported having 2 NFTs
-      const tier = getTierFromCount(fallbackCount)
       setUserStats({
-        nftCount: fallbackCount,
-        tier,
-        tierProgress: getTierProgress(fallbackCount, tier),
-        rewardsEarned: tierInfo[tier as keyof typeof tierInfo].reward,
-        nextTierRequirement: getNextTierRequirement(tier),
+        nftCount: 0,
+        tier: "Holder",
+        tierProgress: 0,
+        rewardsEarned: 0,
+        nextTierRequirement: 3,
       })
     }
   }
@@ -215,6 +176,7 @@ export function MemberDashboard() {
 
       for (const collection of Object.values(COLLECTIONS)) {
         try {
+          console.log(`[v0] Fetching user NFTs from ${collection.name}...`)
           const nfts = await fetchUserNFTs(address, collection.address, collection.chainId)
 
           for (const nft of nfts) {
@@ -234,32 +196,16 @@ export function MemberDashboard() {
         }
       }
 
-      if (allUserNFTs.length > 0) {
-        console.log("[v0] Using real NFT data:", allUserNFTs.length, "total NFTs")
-        setUserNFTs(allUserNFTs)
-      } else {
-        console.log("[v0] No real NFT data found, using fallback")
-        // Fallback for users who reported having NFTs but we can't fetch them
-        const fallbackNFTs: NFT[] = [
-          {
-            id: "pmbc-fallback",
-            name: "Prime Mates Board Club #1",
-            image:
-              "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
-            tokenId: 1,
-            collection: "Prime Mates Board Club",
-            rarity: "Verified Owner",
-          },
-          {
-            id: "pttb-fallback",
-            name: "Prime to the Bone #1",
-            image: "/abstract-nft-concept.png",
-            tokenId: 1,
-            collection: "Prime to the Bone",
-            rarity: "Rare",
-          },
-        ]
-        setUserNFTs(fallbackNFTs)
+      console.log(`[v0] Total NFTs loaded: ${allUserNFTs.length}`)
+      setUserNFTs(allUserNFTs)
+
+      if (allUserNFTs.length === 0) {
+        console.log("[v0] No NFTs found for this wallet address")
+        toast({
+          title: "No NFTs Found",
+          description: "No Prime Mates NFTs found in this wallet. Make sure you're connected to the correct wallet.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("[v0] Failed to load user NFTs:", error)
@@ -493,6 +439,9 @@ export function MemberDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-yellow-400">{userStats.nftCount}</div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {userStats.nftCount === 0 ? "No NFTs found in connected wallet" : "Verified on blockchain"}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -609,7 +558,6 @@ export function MemberDashboard() {
                                   variant="outline"
                                   className="w-full mt-2 border-yellow-400/50 hover:border-yellow-400 bg-transparent"
                                   onClick={() => {
-                                    // Open gesture overlay modal for this NFT
                                     const modal = document.createElement("div")
                                     modal.className = "fixed inset-0 bg-black/80 flex items-center justify-center z-50"
                                     modal.innerHTML = `
@@ -623,7 +571,6 @@ export function MemberDashboard() {
                                     `
                                     document.body.appendChild(modal)
 
-                                    // This would need to be properly implemented with React portals in a real app
                                     toast({
                                       title: "Gesture Studio",
                                       description: `Opening gesture overlay for ${nft.name}`,
@@ -643,8 +590,13 @@ export function MemberDashboard() {
                     {userNFTs.length === 0 && !loadingNFTs && (
                       <div className="text-center py-8">
                         <ImageIcon className="mx-auto h-12 w-12 text-gray-600 mb-4" />
-                        <p className="text-gray-400">No NFTs found in your wallet</p>
-                        <p className="text-sm text-gray-500 mt-2">Make sure you're connected to the correct wallet</p>
+                        <p className="text-gray-400">No Prime Mates NFTs found in your wallet</p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          Connected wallet: {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+                        </p>
+                        <p className="text-sm text-blue-400 mt-2">
+                          Make sure you're connected to the wallet that holds your Prime Mates NFTs
+                        </p>
                       </div>
                     )}
                   </CardContent>
