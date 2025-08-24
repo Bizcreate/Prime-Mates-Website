@@ -4,8 +4,9 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { ThemeProvider } from "@/components/theme-provider"
-import { CartProvider } from "@/context/cart-context" // Import CartProvider
-import { Toaster } from "@/components/ui/toaster" // Import Toaster for toasts
+import { CartProvider } from "@/context/cart-context"
+import { WalletProvider } from "@/contexts/wallet-context" // Import WalletProvider
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -24,13 +25,15 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <CartProvider>
+          <WalletProvider>
             {" "}
-            {/* Wrap children with CartProvider */}
-            <Navigation />
-            <div className="pt-20">{children}</div>
-            <Toaster /> {/* Add Toaster for toasts */}
-          </CartProvider>
+            {/* Add WalletProvider to wrap entire app */}
+            <CartProvider>
+              <Navigation />
+              <div className="pt-20">{children}</div>
+              <Toaster />
+            </CartProvider>
+          </WalletProvider>
         </ThemeProvider>
       </body>
     </html>

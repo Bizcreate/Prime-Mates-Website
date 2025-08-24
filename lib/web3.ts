@@ -36,7 +36,9 @@ const MINT_ABI = [
 
 export const PRIME_MATES_CONTRACTS = {
   PMBC: "0x12662b6a2a424a0090b7d09401fb775a9b968898",
-  PRIME_TO_THE_BONE: "0x", // Add the actual contract address when available
+  PRIME_TO_THE_BONE: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75",
+  PRIME_HALLOWEEN: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8",
+  PRIME_CHRISTMAS: "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf",
 } as const
 
 export interface NFTMetadata {
@@ -538,7 +540,7 @@ export class Web3Service {
       }
 
       const tokenIds: number[] = []
-      for (let i = 1; i <= Math.min(count, totalSupply, 50); i++) {
+      for (let i = startId; i <= Math.min(startId + count - 1, totalSupply, 50); i++) {
         tokenIds.push(i)
       }
 
