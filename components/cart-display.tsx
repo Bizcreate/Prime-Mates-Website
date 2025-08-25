@@ -7,9 +7,59 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Trash2, ShoppingCart } from "lucide-react"
 import Image from "next/image"
+import { useState } from "react"
 
 export function CartDisplay() {
   const { cart, updateQuantity, removeFromCart, clearCart, getTotalItems, getTotalPrice } = useCart()
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return
+
+    setIsCheckingOut(true)
+
+    try {
+      // Create checkout session with WooCommerce
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            product_id: item.id,
+            quantity: item.quantity,
+            name: item.name,
+            price: item.price,
+          })),
+          total: getTotalPrice(),
+        }),
+      })
+
+      if (response.ok) {
+        const { checkout_url } = await response.json()
+        // Redirect to WooCommerce checkout
+        window.location.href = checkout_url
+      } else {
+        // Fallback: redirect to WooCommerce store checkout
+        const checkoutParams = new URLSearchParams()
+        cart.forEach((item, index) => {
+          checkoutParams.append(`add-to-cart[${index}]`, item.id)
+          checkoutParams.append(`quantity[${index}]`, item.quantity.toString())
+        })
+
+        // Get WooCommerce URL from environment or use fallback
+        const wooCommerceUrl = process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || window.location.origin
+        window.location.href = `${wooCommerceUrl}/checkout?${checkoutParams.toString()}`
+      }
+    } catch (error) {
+      console.error("Checkout error:", error)
+      // Show user-friendly error message
+      alert("Unable to proceed to checkout. Please try again or contact support.")
+    } finally {
+      setIsCheckingOut(false)
+    }
+  }
 
   return (
     <Sheet>
@@ -92,8 +142,12 @@ export function CartDisplay() {
               <span>Total:</span>
               <span>${getTotalPrice().toFixed(2)}</span>
             </div>
-            <Button className="w-full mt-4 bg-yellow-400 text-black hover:bg-yellow-300 font-bold">
-              Proceed to Checkout
+            <Button
+              className="w-full mt-4 bg-yellow-400 text-black hover:bg-yellow-300 font-bold"
+              onClick={handleCheckout}
+              disabled={isCheckingOut || cart.length === 0}
+            >
+              {isCheckingOut ? "Processing..." : "Proceed to Checkout"}
             </Button>
             <Button
               variant="outline"
