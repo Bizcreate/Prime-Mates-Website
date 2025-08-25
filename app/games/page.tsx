@@ -4,6 +4,7 @@ import { Games } from "@/components/games"
 import { PrimeArcade } from "@/components/prime-arcade"
 import { Footer } from "@/components/footer"
 import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
+import Image from "next/image"
 
 const PrimeArcadeHero = () => {
   const { isConnected, address } = useWallet()
@@ -13,7 +14,7 @@ const PrimeArcadeHero = () => {
       <div className="max-w-6xl mx-auto text-center">
         <div className="flex items-center justify-center gap-6 mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-2xl">
-            <div className="text-black text-2xl font-bold">🤙</div>
+            <Image src="/images/banana-logo.png" alt="Prime Mates" width={100} height={100} className="rounded-full" />
           </div>
           <div>
             <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-2">

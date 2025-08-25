@@ -42,11 +42,11 @@ export function NFTShowcase() {
   ]
 
   return (
-    <section className="py-20 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <section className="py-20 bg-black">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-5xl font-black mb-6 text-white">NFT COLLECTION</h2>
-          <p className="text-xl text-blue-200 max-w-3xl mx-auto mb-8">
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
             Own a piece of board culture history. Each Prime Mate NFT grants exclusive access to our metaverse, special
             events, and community perks.
           </p>

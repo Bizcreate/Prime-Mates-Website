@@ -51,20 +51,34 @@ async function fetchWooCommerceProducts() {
 
     const wooProducts = await response.json()
 
-    return wooProducts.map((product: any) => ({
-      id: product.id.toString(),
-      name: product.name,
-      description: product.short_description || product.description,
-      price: product.price,
-      image_url: product.images?.[0]?.src || null,
-      category: product.categories?.[0]?.name || "Uncategorized",
-      inventory_quantity: product.stock_quantity || 0,
-      sku: product.sku,
-      status: product.status === "publish" ? "active" : "inactive",
-      badge: product.featured ? "Featured" : null,
-      created_at: product.date_created,
-      updated_at: product.date_modified,
-    }))
+    return wooProducts.map((product: any) => {
+      let inventoryQuantity = 0
+
+      // If stock management is enabled, use the actual stock quantity
+      if (product.manage_stock && product.stock_quantity !== null) {
+        inventoryQuantity = product.stock_quantity
+      } else {
+        // If stock management is disabled, check stock_status
+        // "instock" means available (set to 999 to indicate unlimited stock)
+        // "outofstock" means unavailable (set to 0)
+        inventoryQuantity = product.stock_status === "instock" ? 999 : 0
+      }
+
+      return {
+        id: product.id.toString(),
+        name: product.name,
+        description: product.short_description || product.description,
+        price: product.price,
+        image_url: product.images?.[0]?.src || null,
+        category: product.categories?.[0]?.name || "Uncategorized",
+        inventory_quantity: inventoryQuantity,
+        sku: product.sku,
+        status: product.status === "publish" ? "active" : "inactive",
+        badge: product.featured ? "Featured" : null,
+        created_at: product.date_created,
+        updated_at: product.date_modified,
+      }
+    })
   } catch (error) {
     console.error("[v0] Error fetching WooCommerce products:", error)
     return null
