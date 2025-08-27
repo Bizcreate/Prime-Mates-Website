@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createAuth, type VerifyLoginPayloadParams } from "thirdweb/auth"
 import { privateKeyToAccount } from "thirdweb/wallets"
 import { client } from "@/lib/client"
+import { randomBytes } from "crypto"
 
 const DOMAIN = process.env.NEXT_PUBLIC_THIRDWEB_AUTH_DOMAIN || ""
 const PRIVATE_KEY = process.env.AUTH_PRIVATE_KEY || ""
@@ -12,8 +13,9 @@ if (!DOMAIN) throw new Error("Missing NEXT_PUBLIC_THIRDWEB_AUTH_DOMAIN")
 let authPrivateKey = PRIVATE_KEY
 if (!authPrivateKey) {
   console.warn("[v0] AUTH_PRIVATE_KEY not found, generating temporary key for development")
-  // Generate a deterministic private key for development (not secure for production)
-  authPrivateKey = "0x" + "1".repeat(64) // Simple fallback key
+  const randomBytesBuffer = randomBytes(32)
+  authPrivateKey = "0x" + randomBytesBuffer.toString("hex")
+  console.warn("[v0] Using temporary key - set AUTH_PRIVATE_KEY environment variable for production")
 }
 
 const auth = createAuth({
