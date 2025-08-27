@@ -6,7 +6,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
+import { useActiveAccount } from "thirdweb/react"
+import { ConnectButton } from "thirdweb/react"
+import { client } from "@/lib/client"
 import { Coins, Clock, TrendingUp, Zap, Gift, Star } from "lucide-react"
 
 interface StakedNFT {
@@ -28,7 +30,11 @@ interface StakingStats {
 }
 
 export default function StakePage() {
-  const { address: walletAddress, isConnected, userNFTs } = useWallet()
+  const account = useActiveAccount()
+  const walletAddress = account?.address
+  const isConnected = !!account
+
+  const [userNFTs, setUserNFTs] = useState<any[]>([])
   const [stakedNFTs, setStakedNFTs] = useState<StakedNFT[]>([])
   const [stakingStats, setStakingStats] = useState<StakingStats>({
     totalStaked: 0,
@@ -42,14 +48,38 @@ export default function StakePage() {
   useEffect(() => {
     if (isConnected && walletAddress) {
       loadStakingData(walletAddress)
+      loadUserNFTs(walletAddress)
     }
   }, [isConnected, walletAddress])
+
+  const loadUserNFTs = async (address: string) => {
+    try {
+      console.log("[v0] Loading user NFTs for wallet:", address)
+      const mockNFTs = [
+        {
+          name: "Prime Mate #1001",
+          collection: "PMBC",
+          image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif",
+          tokenId: "1001",
+        },
+        {
+          name: "Prime to the Bone #501",
+          collection: "PTTB",
+          image:
+            "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/IMG_8875.PNG-UfJS6bLCgHIycoiaj9kpwx4DnI9aKS.png",
+          tokenId: "501",
+        },
+      ]
+      setUserNFTs(mockNFTs)
+    } catch (error) {
+      console.error("Error loading user NFTs:", error)
+    }
+  }
 
   const loadStakingData = async (address: string) => {
     try {
       console.log("[v0] Loading staking data for wallet:", address)
 
-      // Load staked NFTs (mock data for now)
       const mockStakedNFTs: StakedNFT[] = [
         {
           id: "1",
@@ -76,9 +106,8 @@ export default function StakePage() {
 
       setStakedNFTs(mockStakedNFTs)
 
-      // Calculate staking stats
       const totalRewards = mockStakedNFTs.reduce((sum, nft) => sum + nft.rewards, 0)
-      const dailyRewards = mockStakedNFTs.length * 5.5 // Base daily rate
+      const dailyRewards = mockStakedNFTs.length * 5.5
 
       setStakingStats({
         totalStaked: mockStakedNFTs.length,
@@ -96,7 +125,7 @@ export default function StakePage() {
       setIsLoading(true)
       console.log("[v0] Staking NFT:", nft.name)
 
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate staking delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       toast({
         title: "NFT Staked",
@@ -122,7 +151,7 @@ export default function StakePage() {
       setIsLoading(true)
       console.log("[v0] Unstaking NFT:", nft.name)
 
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate unstaking delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       toast({
         title: "NFT Unstaked",
@@ -148,7 +177,7 @@ export default function StakePage() {
       setIsLoading(true)
       console.log("[v0] Claiming rewards:", stakingStats.totalRewards)
 
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate claiming delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
       toast({
         title: "Rewards Claimed",
@@ -200,7 +229,15 @@ export default function StakePage() {
                   </p>
                 </div>
 
-                <WalletConnectButton className="px-8 py-3 text-lg" />
+                <ConnectButton
+                  client={client}
+                  theme="dark"
+                  connectButton={{
+                    label: "Connect Wallet",
+                    className:
+                      "px-8 py-3 text-lg bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg",
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -247,7 +284,6 @@ export default function StakePage() {
           </div>
         </div>
 
-        {/* Staking Stats */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gray-800 border-yellow-400/20">
             <CardContent className="p-6">
@@ -295,7 +331,6 @@ export default function StakePage() {
           </Card>
         </div>
 
-        {/* Claim Rewards */}
         {stakingStats.totalRewards > 0 && (
           <Card className="bg-gradient-to-r from-yellow-400/10 to-green-400/10 border-yellow-400/30 mb-8">
             <CardContent className="p-6">

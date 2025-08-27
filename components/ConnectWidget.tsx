@@ -46,3 +46,5 @@ export default function ConnectWidget() {
     />
   )
 }
+
+export { ConnectWidget }

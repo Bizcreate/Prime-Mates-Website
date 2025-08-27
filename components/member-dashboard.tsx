@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useWallet } from "@/contexts/unified-wallet-context"
+import { useActiveAccount, useDisconnect } from "thirdweb/react"
 import { fetchUserNFTs } from "@/lib/web3-utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,7 +45,11 @@ const tierInfo = {
 }
 
 export function MemberDashboard() {
-  const { address, isConnected, disconnect, loading: walletLoading } = useWallet()
+  const account = useActiveAccount()
+  const { disconnect } = useDisconnect()
+  const address = account?.address
+  const isConnected = !!account
+
   const [nfts, setNfts] = useState<NFT[]>([])
   const [collections, setCollections] = useState<Collections>({ pmbc: [], pttb: [], halloween: [], christmas: [] })
   const [isLoading, setIsLoading] = useState(false)
@@ -53,7 +57,7 @@ export function MemberDashboard() {
 
   useEffect(() => {
     if (isConnected && address) {
-      console.log("[v0] Unified wallet connected, fetching NFTs for:", address)
+      console.log("[v0] Thirdweb wallet connected, fetching NFTs for:", address)
       loadUserNFTs()
     }
   }, [isConnected, address])

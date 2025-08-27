@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, ExternalLink, Loader2, Palette } from "lucide-react"
 import { fetchCollectionNFTs, fetchNFTByTokenId } from "@/lib/web3-utils"
-import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
+import { useActiveAccount } from "thirdweb/react"
+import { ConnectWidget } from "@/components/ConnectWidget"
 
 const collections = [
   {
@@ -59,7 +60,22 @@ export default function GalleryPage() {
   const [activeTab, setActiveTab] = useState("collections")
   const [loading, setLoading] = useState(false)
 
-  const { address: walletAddress, isConnected, userNFTs, loading: walletLoading } = useWallet()
+  const account = useActiveAccount()
+  const walletAddress = account?.address
+  const isConnected = !!account
+  const [userNFTs, setUserNFTs] = useState<any[]>([])
+  const [walletLoading, setWalletLoading] = useState(false)
+
+  useEffect(() => {
+    if (isConnected && walletAddress) {
+      setWalletLoading(true)
+      // TODO: Implement user NFT fetching logic
+      setTimeout(() => {
+        setUserNFTs([]) // Placeholder - implement actual NFT fetching
+        setWalletLoading(false)
+      }, 1000)
+    }
+  }, [isConnected, walletAddress])
 
   const loadCollectionNFTs = async (collection: (typeof collections)[0]) => {
     setLoading(true)
@@ -413,7 +429,7 @@ export default function GalleryPage() {
               </p>
 
               {!isConnected ? (
-                <WalletConnectButton className="px-8 py-3" />
+                <ConnectWidget />
               ) : (
                 <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8">
                   <p className="text-sm text-gray-400 mb-2">Connected Wallet</p>
