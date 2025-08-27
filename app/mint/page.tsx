@@ -9,12 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Plus, Minus, ExternalLink, Users, Clock, Zap, Gift, Star, Trophy } from "lucide-react"
-import { useWallet, WalletConnectButton } from "@/contexts/unified-wallet-context"
+import { useActiveAccount, ConnectButton } from "thirdweb/react"
+import { client } from "@/lib/client"
 
 const CONTRACT_ADDRESS = "0x12662b6a2a424a0090b7d09401fb775a9b968898"
 
 export default function MintPage() {
-  const { address: walletAddress, isConnected } = useWallet()
+  const account = useActiveAccount()
+  const walletAddress = account?.address
+  const isConnected = !!account
+
   const [mintQuantity, setMintQuantity] = useState(1)
   const [isMinting, setIsMinting] = useState(false)
   const [totalSupply, setTotalSupply] = useState(1661)
@@ -192,7 +196,15 @@ export default function MintPage() {
                   {/* Wallet Connection */}
                   {!isConnected ? (
                     <div className="space-y-3">
-                      <WalletConnectButton className="w-full py-3 text-lg" />
+                      <ConnectButton
+                        client={client}
+                        theme="dark"
+                        connectButton={{
+                          label: "Connect Wallet",
+                          className:
+                            "w-full py-3 text-lg bg-[#fdc730] hover:bg-[#fdc730]/90 text-black font-semibold rounded-lg",
+                        }}
+                      />
                       <div className="p-3 bg-[#fdc730]/10 border border-[#fdc730]/30 rounded-lg">
                         <p className="text-sm text-[#fdc730] text-center">
                           💡 When your wallet popup appears, click <strong>"Connect"</strong> or{" "}
