@@ -6,8 +6,7 @@ import { Navigation } from "@/components/navigation"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/context/cart-context"
 import { ThirdwebProvider } from "thirdweb/react"
-import { UnifiedWalletProvider } from "@/contexts/unified-wallet-context"
-import { client } from "@/lib/thirdweb-client"
+import { client } from "@/lib/client"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -28,13 +27,11 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <ThirdwebProvider activeChain="ethereum" client={client}>
-            <UnifiedWalletProvider>
-              <CartProvider>
-                <Navigation />
-                <div className="pt-20">{children}</div>
-                <Toaster />
-              </CartProvider>
-            </UnifiedWalletProvider>
+            <CartProvider>
+              <Navigation />
+              <div className="pt-20">{children}</div>
+              <Toaster />
+            </CartProvider>
           </ThirdwebProvider>
         </ThemeProvider>
       </body>

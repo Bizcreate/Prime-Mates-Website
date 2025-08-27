@@ -2,11 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, User } from "lucide-react"
+import { Menu } from "lucide-react"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { CartDisplay } from "@/components/cart-display"
+import ConnectWidget from "@/components/ConnectWidget"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
@@ -56,13 +57,7 @@ export function Navigation() {
           {/* Actions */}
           <div className="flex items-center space-x-4">
             <CartDisplay />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-foreground hover:text-primary hover:bg-primary/10 border-glow-yellow"
-            >
-              <User className="h-5 w-5" />
-            </Button>
+            <ConnectWidget />
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="lg:hidden">

@@ -8,54 +8,25 @@ import { Separator } from "@/components/ui/separator"
 import { Trash2, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export function CartDisplay() {
   const { cart, updateQuantity, removeFromCart, clearCart, getTotalItems, getTotalPrice } = useCart()
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const router = useRouter()
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
 
     setIsCheckingOut(true)
+    console.log("[v0] Redirecting to checkout page with", cart.length, "items")
 
     try {
-      // Create checkout session with WooCommerce
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items: cart.map((item) => ({
-            product_id: item.id,
-            quantity: item.quantity,
-            name: item.name,
-            price: item.price,
-          })),
-          total: getTotalPrice(),
-        }),
-      })
-
-      if (response.ok) {
-        const { checkout_url } = await response.json()
-        // Redirect to WooCommerce checkout
-        window.location.href = checkout_url
-      } else {
-        // Fallback: redirect to WooCommerce store checkout
-        const checkoutParams = new URLSearchParams()
-        cart.forEach((item, index) => {
-          checkoutParams.append(`add-to-cart[${index}]`, item.id)
-          checkoutParams.append(`quantity[${index}]`, item.quantity.toString())
-        })
-
-        // Get WooCommerce URL from environment or use fallback
-        const wooCommerceUrl = process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || window.location.origin
-        window.location.href = `${wooCommerceUrl}/checkout?${checkoutParams.toString()}`
-      }
+      // Redirect to our internal checkout page
+      router.push("/checkout")
     } catch (error) {
-      console.error("Checkout error:", error)
-      // Show user-friendly error message
-      alert("Unable to proceed to checkout. Please try again or contact support.")
+      console.error("[v0] Checkout redirect error:", error)
+      alert("Unable to proceed to checkout. Please try again.")
     } finally {
       setIsCheckingOut(false)
     }
@@ -89,7 +60,10 @@ export function CartDisplay() {
             <ScrollArea className="flex-grow pr-4">
               <div className="space-y-4 py-4">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4">
+                  <div
+                    key={`${item.id}-${item.selectedSize || ""}-${item.selectedColor || ""}`}
+                    className="flex items-center gap-4"
+                  >
                     {item.imageUrl && (
                       <Image
                         src={item.imageUrl || "/placeholder.svg?height=64&width=64&query=product"}
@@ -101,6 +75,13 @@ export function CartDisplay() {
                     )}
                     <div className="flex-grow">
                       <p className="font-medium">{item.name}</p>
+                      {(item.selectedSize || item.selectedColor) && (
+                        <p className="text-xs text-yellow-400">
+                          {item.selectedSize && `Size: ${item.selectedSize}`}
+                          {item.selectedSize && item.selectedColor && " • "}
+                          {item.selectedColor && `Color: ${item.selectedColor}`}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-400">
                         ${item.price.toFixed(2)} x {item.quantity}
                       </p>

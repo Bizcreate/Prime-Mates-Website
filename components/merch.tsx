@@ -3,16 +3,26 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ShoppingCart, Heart, Star, Shirt } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useCart } from "@/context/cart-context"
 import type { Product } from "@/lib/db"
 
+interface ExtendedProduct extends Product {
+  sizes?: string[]
+  colors?: string[]
+  type?: string
+  variations?: number[]
+}
+
 export function Merch() {
   const [favorites, setFavorites] = useState<string[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ExtendedProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({})
+  const [selectedColors, setSelectedColors] = useState<{ [key: string]: string }>({})
   const { addToCart } = useCart()
 
   useEffect(() => {
@@ -28,7 +38,9 @@ export function Merch() {
     try {
       const response = await fetch("/api/products")
       const data = await response.json()
-      setProducts(data.filter((product: Product) => product.status === "active" || product.status === "featured"))
+      setProducts(
+        data.filter((product: ExtendedProduct) => product.status === "active" || product.status === "featured"),
+      )
     } catch (error) {
       setProducts([]) // Fallback to empty array
     } finally {
@@ -42,8 +54,26 @@ export function Merch() {
     localStorage.setItem("prime-mates-favorites", JSON.stringify(newFavorites))
   }
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product)
+  const handleAddToCart = (product: ExtendedProduct) => {
+    const selectedSize = selectedSizes[product.id]
+    const selectedColor = selectedColors[product.id]
+
+    // For variable products, require size selection
+    if (product.type === "variable" && product.sizes && product.sizes.length > 0 && !selectedSize) {
+      alert("Please select a size before adding to cart")
+      return
+    }
+
+    // Create product with selected variations
+    const productWithVariations = {
+      ...product,
+      selectedSize,
+      selectedColor,
+      // Update name to include variations
+      name: `${product.name}${selectedSize ? ` - ${selectedSize}` : ""}${selectedColor ? ` - ${selectedColor}` : ""}`,
+    }
+
+    addToCart(productWithVariations)
   }
 
   const filteredProducts =
@@ -190,6 +220,52 @@ export function Merch() {
                   </p>
                   {product.sku && <p className="text-xs text-gray-500">SKU: {product.sku}</p>}
                 </div>
+
+                {product.type === "variable" && (
+                  <div className="mb-3 space-y-2">
+                    {product.sizes && product.sizes.length > 0 && (
+                      <div>
+                        <label className="text-xs text-gray-400 block mb-1">Size:</label>
+                        <Select
+                          value={selectedSizes[product.id] || ""}
+                          onValueChange={(value) => setSelectedSizes((prev) => ({ ...prev, [product.id]: value }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-black border-yellow-400/30 text-white">
+                            <SelectValue placeholder="Select size" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-black border-yellow-400/30">
+                            {product.sizes.map((size) => (
+                              <SelectItem key={size} value={size} className="text-white hover:bg-yellow-400/20">
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {product.colors && product.colors.length > 0 && (
+                      <div>
+                        <label className="text-xs text-gray-400 block mb-1">Color:</label>
+                        <Select
+                          value={selectedColors[product.id] || ""}
+                          onValueChange={(value) => setSelectedColors((prev) => ({ ...prev, [product.id]: value }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-black border-yellow-400/30 text-white">
+                            <SelectValue placeholder="Select color" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-black border-yellow-400/30">
+                            {product.colors.map((color) => (
+                              <SelectItem key={color} value={color} className="text-white hover:bg-yellow-400/20">
+                                {color}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">

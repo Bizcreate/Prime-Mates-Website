@@ -37,19 +37,34 @@ async function fetchWooCommerceProducts() {
 
     const auth = Buffer.from(`${WOOCOMMERCE_CONSUMER_KEY}:${WOOCOMMERCE_CONSUMER_SECRET}`).toString("base64")
 
-    const response = await fetch(`${WOOCOMMERCE_URL}/wp-json/wc/v3/products?status=publish&per_page=50`, {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-      },
-    })
+    const [productsResponse, variationsResponse] = await Promise.all([
+      fetch(`${WOOCOMMERCE_URL}/wp-json/wc/v3/products?status=publish&per_page=50`, {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
+        },
+      }),
+      // Fetch all variations for variable products
+      fetch(`${WOOCOMMERCE_URL}/wp-json/wc/v3/products?type=variation&per_page=100`, {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
+        },
+      }),
+    ])
 
-    if (!response.ok) {
-      console.error("[v0] WooCommerce API error:", response.status, await response.text())
+    if (!productsResponse.ok) {
+      console.error("[v0] WooCommerce API error:", productsResponse.status, await productsResponse.text())
       return null
     }
 
-    const wooProducts = await response.json()
+    const wooProducts = await productsResponse.json()
+    const wooVariations = await variationsResponse.json()
+
+    if (!Array.isArray(wooProducts)) {
+      console.error("[v0] WooCommerce API returned non-array response:", typeof wooProducts, wooProducts)
+      return null
+    }
 
     return wooProducts.map((product: any) => {
       let inventoryQuantity = 0
@@ -64,6 +79,9 @@ async function fetchWooCommerceProducts() {
         inventoryQuantity = product.stock_status === "instock" ? 999 : 0
       }
 
+      const sizes = product.attributes?.find((attr: any) => attr.name.toLowerCase().includes("size"))?.options || []
+      const colors = product.attributes?.find((attr: any) => attr.name.toLowerCase().includes("color"))?.options || []
+
       return {
         id: product.id.toString(),
         name: product.name,
@@ -77,6 +95,10 @@ async function fetchWooCommerceProducts() {
         badge: product.featured ? "Featured" : null,
         created_at: product.date_created,
         updated_at: product.date_modified,
+        sizes: sizes,
+        colors: colors,
+        type: product.type, // simple, variable, etc.
+        variations: product.variations || [], // variation IDs for variable products
       }
     })
   } catch (error) {
