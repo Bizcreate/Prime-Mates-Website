@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useActiveAccount, useDisconnect } from "thirdweb/react"
+import { fetchUserNFTs } from "@/lib/web3-utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -66,27 +67,18 @@ export function MemberDashboard() {
 
     setIsLoading(true)
     try {
-      console.log("[v0] Fetching NFTs via API for address:", address)
-      const response = await fetch(`/api/nfts?wallet=${address}`)
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log("[v0] API response:", data)
-
-      const userNFTs = data.nfts || []
-      console.log("[v0] Processed NFTs:", userNFTs)
+      console.log("[v0] Fetching NFTs for address:", address)
+      const userNFTs = await fetchUserNFTs(address)
+      console.log("[v0] Fetched NFTs:", userNFTs)
 
       setNfts(userNFTs)
 
       // Group by collections
       const groupedCollections: Collections = {
-        pmbc: userNFTs.filter((nft: NFT) => nft.collection === "Prime Mates Board Club"),
-        pttb: userNFTs.filter((nft: NFT) => nft.collection === "Prime To The Bone"),
-        halloween: userNFTs.filter((nft: NFT) => nft.collection === "Prime Halloween"),
-        christmas: userNFTs.filter((nft: NFT) => nft.collection === "Prime Mates Christmas Club"),
+        pmbc: userNFTs.filter((nft) => nft.collection === "Prime Mates Board Club"),
+        pttb: userNFTs.filter((nft) => nft.collection === "Prime To The Bone"),
+        halloween: userNFTs.filter((nft) => nft.collection === "Prime Halloween"),
+        christmas: userNFTs.filter((nft) => nft.collection === "Prime Mates Christmas Club"),
       }
 
       setCollections(groupedCollections)
@@ -99,7 +91,7 @@ export function MemberDashboard() {
       }
     } catch (error) {
       console.error("[v0] Error fetching NFTs:", error)
-      toast.error("Failed to load NFTs from blockchain")
+      toast.error("Failed to load NFTs")
     } finally {
       setIsLoading(false)
     }

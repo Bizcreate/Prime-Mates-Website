@@ -31,19 +31,6 @@ export const COLLECTIONS: Record<
   },
 }
 
-export const CONTRACTS = {
-  PMBC: {
-    address: COLLECTIONS.pmbc.address,
-    chain: COLLECTIONS.pmbc.chain,
-    chainId: COLLECTIONS.pmbc.chainId,
-  },
-  PTTB: {
-    address: COLLECTIONS.pttb.address,
-    chain: COLLECTIONS.pttb.chain,
-    chainId: COLLECTIONS.pttb.chainId,
-  },
-}
-
 export const STAKING = {
   address: "0x0000000000000000000000000000000000000000" as `0x${string}`,
   chain: "polygon" as const,

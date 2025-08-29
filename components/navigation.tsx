@@ -23,6 +23,7 @@ export function Navigation() {
     { name: "Community", href: "/community" },
     { name: "Games & Prime Arcade", href: "/games" },
     { name: "Merch", href: "/merch" },
+    { name: "Events", href: "/events" },
     { name: "About", href: "/#about" },
     { name: "Contact", href: "/#contact" },
   ]
