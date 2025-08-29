@@ -9,10 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Plus, Minus, ExternalLink, Users, Clock, Zap, Gift, Star, Trophy } from "lucide-react"
-import { useActiveAccount, ConnectButton } from "thirdweb/react"
+import { useActiveAccount, useSendTransaction, useReadContract } from "thirdweb/react"
 import { client } from "@/lib/client"
+import { getContract, prepareContractCall } from "thirdweb"
+import { ethereum } from "thirdweb/chains" // Changed from polygon to ethereum
+import { COLLECTIONS } from "@/config/contracts"
+import { ConnectWidget } from "@/components/ConnectWidget"
 
-const CONTRACT_ADDRESS = "0x12662b6a2a424a0090b7d09401fb775a9b968898"
+const CONTRACT_ADDRESS = COLLECTIONS.pmbc.address
+const CHAIN = ethereum // Changed from polygon to ethereum
+const MINT_PRICE = COLLECTIONS.pmbc.unitPriceWei
 
 export default function MintPage() {
   const account = useActiveAccount()
@@ -26,17 +32,56 @@ export default function MintPage() {
   const [mintPrice, setMintPrice] = useState(0.05)
   const [isLoadingStats, setIsLoadingStats] = useState(false)
 
+  const contract = getContract({
+    client,
+    chain: CHAIN,
+    address: CONTRACT_ADDRESS,
+  })
+
+  const { data: contractTotalSupply } = useReadContract({
+    contract,
+    method: "function totalSupply() view returns (uint256)",
+  })
+
+  const { data: contractMaxSupply } = useReadContract({
+    contract,
+    method: "function maxSupply() view returns (uint256)",
+  })
+
+  const { data: contractMintPrice } = useReadContract({
+    contract,
+    method: "function mintPrice() view returns (uint256)",
+  })
+
+  const { mutate: sendTransaction } = useSendTransaction()
+
   useEffect(() => {
     loadCollectionStats()
-  }, [])
+  }, [contractTotalSupply, contractMaxSupply, contractMintPrice])
 
   const loadCollectionStats = async () => {
     setIsLoadingStats(true)
     try {
-      console.log("[v0] Loading collection stats...")
-      // For now, keep default values - can be enhanced later with real blockchain calls
+      console.log("[v0] Loading collection stats from blockchain...")
+
+      if (contractTotalSupply) {
+        setTotalSupply(Number(contractTotalSupply))
+        console.log("[v0] Real total supply:", Number(contractTotalSupply))
+      }
+
+      if (contractMaxSupply) {
+        setMaxSupply(Number(contractMaxSupply))
+        console.log("[v0] Real max supply:", Number(contractMaxSupply))
+      }
+
+      if (contractMintPrice) {
+        const priceInEth = Number(contractMintPrice) / 1e18
+        setMintPrice(priceInEth)
+        console.log("[v0] Real mint price:", priceInEth, "ETH")
+      }
     } catch (error) {
       console.error("Failed to load collection stats:", error)
+      // Keep default values if blockchain read fails
     } finally {
       setIsLoadingStats(false)
     }
@@ -54,25 +99,44 @@ export default function MintPage() {
 
     setIsMinting(true)
     try {
-      console.log("[v0] Starting mint process for", mintQuantity, "NFTs")
+      console.log("[v0] Starting real mint process for", mintQuantity, "NFTs")
       console.log("[v0] Connected wallet:", walletAddress)
+      console.log("[v0] Contract address:", CONTRACT_ADDRESS)
+      console.log("[v0] Chain:", CHAIN.name)
 
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate minting delay
-
-      toast({
-        title: "Minting Successful!",
-        description: (
-          <div>
-            <p>
-              Successfully minted {mintQuantity} Prime Mates NFT{mintQuantity > 1 ? "s" : ""}!
-            </p>
-            <p className="text-sm text-gray-400 mt-1">Transaction will appear in your wallet shortly</p>
-          </div>
-        ),
+      const transaction = prepareContractCall({
+        contract,
+        method: "function mint(uint256 quantity) payable",
+        params: [BigInt(mintQuantity)],
+        value: MINT_PRICE ? MINT_PRICE * BigInt(mintQuantity) : BigInt(0),
       })
 
-      // Refresh collection stats after successful mint
-      await loadCollectionStats()
+      sendTransaction(transaction, {
+        onSuccess: (result) => {
+          console.log("[v0] Mint transaction successful:", result.transactionHash)
+          toast({
+            title: "Minting Successful!",
+            description: (
+              <div>
+                <p>
+                  Successfully minted {mintQuantity} Prime Mates NFT{mintQuantity > 1 ? "s" : ""}!
+                </p>
+                <p className="text-sm text-gray-400 mt-1">Transaction: {result.transactionHash?.slice(0, 10)}...</p>
+              </div>
+            ),
+          })
+          // Refresh collection stats after successful mint
+          loadCollectionStats()
+        },
+        onError: (error) => {
+          console.error("[v0] Mint transaction failed:", error)
+          toast({
+            title: "Minting Failed",
+            description: error.message || "Failed to mint NFT. Please try again.",
+            variant: "destructive",
+          })
+        },
+      })
     } catch (error: any) {
       console.error("Minting error:", error)
       toast({
@@ -100,7 +164,7 @@ export default function MintPage() {
         <div className="relative container mx-auto px-4 py-20">
           <div className="text-center mb-12">
             <Badge className="mb-4 bg-[#fdc730] text-black hover:bg-[#fdc730]/90 shadow-lg shadow-[#fdc730]/20">
-              Prime Mates Board Club
+              Prime Mates Board Club • {CHAIN.name}
             </Badge>
             <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-[#fdc730] to-yellow-300 bg-clip-text text-transparent drop-shadow-lg">
               Art Collection
@@ -130,7 +194,7 @@ export default function MintPage() {
                       <p className="text-gray-400">Board Club Member</p>
                     </div>
                     <Badge variant="outline" className="border-[#fdc730] text-[#fdc730] shadow-sm shadow-[#fdc730]/20">
-                      Exclusive
+                      Live on {CHAIN.name}
                     </Badge>
                   </div>
                 </CardContent>
@@ -190,25 +254,18 @@ export default function MintPage() {
               <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border-l-4 border-l-[#fdc730]">
                 <CardHeader>
                   <CardTitle className="text-2xl text-[#fdc730]">Mint Your Prime Mates</CardTitle>
-                  <CardDescription>Connect your wallet and join the exclusive Board Club</CardDescription>
+                  <CardDescription>
+                    Connect your wallet and join the exclusive Board Club on {CHAIN.name}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Wallet Connection */}
                   {!isConnected ? (
                     <div className="space-y-3">
-                      <ConnectButton
-                        client={client}
-                        theme="dark"
-                        connectButton={{
-                          label: "Connect Wallet",
-                          className:
-                            "w-full py-3 text-lg bg-[#fdc730] hover:bg-[#fdc730]/90 text-black font-semibold rounded-lg",
-                        }}
-                      />
+                      <ConnectWidget />
                       <div className="p-3 bg-[#fdc730]/10 border border-[#fdc730]/30 rounded-lg">
                         <p className="text-sm text-[#fdc730] text-center">
-                          💡 When your wallet popup appears, click <strong>"Connect"</strong> or{" "}
-                          <strong>"Approve"</strong> to proceed
+                          💡 Make sure you're connected to {CHAIN.name} network
                         </p>
                       </div>
                     </div>
@@ -291,7 +348,7 @@ export default function MintPage() {
                     {isMinting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-2" />
-                        Minting...
+                        Minting on {CHAIN.name}...
                       </>
                     ) : (
                       `Mint ${mintQuantity} NFT${mintQuantity > 1 ? "s" : ""}`
@@ -300,7 +357,7 @@ export default function MintPage() {
 
                   {/* Contract Info */}
                   <div className="text-center pt-4">
-                    <p className="text-sm text-gray-400 mb-2">Contract Address</p>
+                    <p className="text-sm text-gray-400 mb-2">Contract Address ({CHAIN.name})</p>
                     <div className="flex items-center justify-center space-x-2">
                       <code className="text-xs bg-gray-900 px-2 py-1 rounded font-mono border border-[#fdc730]/20">
                         {CONTRACT_ADDRESS.slice(0, 10)}...{CONTRACT_ADDRESS.slice(-8)}

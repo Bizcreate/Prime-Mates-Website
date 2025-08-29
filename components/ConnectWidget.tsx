@@ -2,19 +2,24 @@
 import { ConnectButton } from "thirdweb/react"
 import { client } from "@/lib/client"
 import { createWallet } from "thirdweb/wallets"
-import { polygon, mainnet } from "thirdweb/chains"
+import { polygon, mainnet, base, arbitrum } from "thirdweb/chains"
 
-const chainName = (process.env.NEXT_PUBLIC_DEFAULT_CHAIN || "polygon").toLowerCase()
-const defaultChain = chainName === "mainnet" ? mainnet : polygon
+const supportedChains = [mainnet, polygon, base, arbitrum]
 
-const wallets = [createWallet("io.metamask"), createWallet("com.coinbase.wallet"), createWallet("me.rainbow")]
+const wallets = [
+  createWallet("io.metamask"),
+  createWallet("com.coinbase.wallet"),
+  createWallet("me.rainbow"),
+  createWallet("com.trustwallet.app"),
+  createWallet("io.zerion.wallet"),
+]
 
 export default function ConnectWidget() {
   return (
     <ConnectButton
       client={client}
       wallets={wallets}
-      chain={defaultChain}
+      chains={supportedChains} // Use chains array instead of single chain
       connectButton={{
         label: "Connect Wallet",
         className:
@@ -24,7 +29,15 @@ export default function ConnectWidget() {
         className:
           "bg-primary/10 text-primary border-primary hover:bg-primary/20 font-semibold px-4 py-2 rounded-lg glow-yellow-soft",
       }}
+      switchButton={{
+        className: "bg-gray-800 text-white border-gray-700 hover:bg-gray-700 font-semibold px-4 py-2 rounded-lg",
+      }}
       theme="dark"
+      showAllWallets={true}
+      connectModal={{
+        size: "wide",
+        showThirdwebBranding: false,
+      }}
     />
   )
 }

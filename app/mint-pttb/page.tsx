@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import {
-  Wallet,
   Plus,
   Minus,
   ExternalLink,
@@ -23,9 +22,16 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { web3Service } from "@/lib/web3"
+import { useActiveAccount, useSendTransaction, useReadContract } from "thirdweb/react"
+import { client } from "@/lib/client"
+import { getContract, prepareContractCall } from "thirdweb"
+import { polygon } from "thirdweb/chains"
+import { COLLECTIONS } from "@/config/contracts"
+import { ConnectWidget } from "@/components/ConnectWidget"
 
-const CONTRACT_ADDRESS = "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75"
+const CONTRACT_ADDRESS = COLLECTIONS.pttb.address
+const CHAIN = polygon
+const MINT_PRICE = COLLECTIONS.pttb.unitPriceWei
 
 const PTTB_ARTWORKS = [
   {
@@ -56,16 +62,40 @@ const PTTB_ARTWORKS = [
 ]
 
 export default function MintPTTBPage() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [walletAddress, setWalletAddress] = useState("")
+  const account = useActiveAccount()
+  const walletAddress = account?.address
+  const isConnected = !!account
+
   const [mintQuantity, setMintQuantity] = useState(1)
   const [isMinting, setIsMinting] = useState(false)
   const [totalSupply, setTotalSupply] = useState(439)
   const [maxSupply, setMaxSupply] = useState(999)
-  const [mintPrice, setMintPrice] = useState(85) // 85 MATIC for public
+  const [mintPrice, setMintPrice] = useState(85)
   const [isLoadingStats, setIsLoadingStats] = useState(false)
   const [currentArtworkIndex, setCurrentArtworkIndex] = useState(0)
-  const [showConnectionGuide, setShowConnectionGuide] = useState(false)
+
+  const contract = getContract({
+    client,
+    chain: CHAIN,
+    address: CONTRACT_ADDRESS,
+  })
+
+  const { data: contractTotalSupply } = useReadContract({
+    contract,
+    method: "function totalSupply() view returns (uint256)",
+  })
+
+  const { data: contractMaxSupply } = useReadContract({
+    contract,
+    method: "function maxSupply() view returns (uint256)",
+  })
+
+  const { data: contractMintPrice } = useReadContract({
+    contract,
+    method: "function mintPrice() view returns (uint256)",
+  })
+
+  const { mutate: sendTransaction } = useSendTransaction()
 
   useEffect(() => {
     loadCollectionStats()
@@ -74,60 +104,33 @@ export default function MintPTTBPage() {
     }, 4000)
 
     return () => clearInterval(artworkInterval)
-  }, [])
+  }, [contractTotalSupply, contractMaxSupply, contractMintPrice])
 
   const loadCollectionStats = async () => {
     setIsLoadingStats(true)
     try {
-      const stats = await web3Service.getCollectionStats(CONTRACT_ADDRESS)
-      if (stats.maxSupply === 999) {
-        setTotalSupply(stats.totalSupply)
-        setMaxSupply(stats.maxSupply)
-        setMintPrice(Number.parseFloat(stats.mintPrice))
+      console.log("[v0] Loading PTTB collection stats from blockchain...")
+
+      if (contractTotalSupply) {
+        setTotalSupply(Number(contractTotalSupply))
+        console.log("[v0] Real total supply:", Number(contractTotalSupply))
+      }
+
+      if (contractMaxSupply) {
+        setMaxSupply(Number(contractMaxSupply))
+        console.log("[v0] Real max supply:", Number(contractMaxSupply))
+      }
+
+      if (contractMintPrice) {
+        const priceInMatic = Number(contractMintPrice) / 1e18
+        setMintPrice(priceInMatic)
+        console.log("[v0] Real mint price:", priceInMatic, "MATIC")
       }
     } catch (error) {
       console.error("Failed to load collection stats:", error)
-      setTotalSupply(439)
-      setMaxSupply(999)
-      setMintPrice(85)
+      // Keep default values if blockchain read fails
     } finally {
       setIsLoadingStats(false)
-    }
-  }
-
-  const connectWallet = async () => {
-    try {
-      setShowConnectionGuide(true)
-      const address = await web3Service.connectWallet()
-      if (address) {
-        setWalletAddress(address)
-        setIsConnected(true)
-        setShowConnectionGuide(false)
-        toast({
-          title: "Wallet Connected",
-          description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
-        })
-      } else {
-        throw new Error("Failed to connect wallet")
-      }
-    } catch (error: any) {
-      console.log("[v0] Wallet connection failed:", error)
-      setShowConnectionGuide(false)
-      if (error.code === "ACTION_REJECTED" || error.code === 4001) {
-        toast({
-          title: "Connection Cancelled",
-          description:
-            "You need to click 'Connect' in your wallet popup to proceed. Please try again and approve the connection.",
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Connection Failed",
-          description:
-            error.message || "Failed to connect wallet. Please make sure your wallet is installed and try again.",
-          variant: "destructive",
-        })
-      }
     }
   }
 
@@ -143,32 +146,44 @@ export default function MintPTTBPage() {
 
     setIsMinting(true)
     try {
-      console.log("[v0] Starting mint process for", mintQuantity, "PTTB NFTs")
+      console.log("[v0] Starting real mint process for", mintQuantity, "PTTB NFTs")
+      console.log("[v0] Connected wallet:", walletAddress)
+      console.log("[v0] Contract address:", CONTRACT_ADDRESS)
+      console.log("[v0] Chain:", CHAIN.name)
 
-      const txHash = await web3Service.mintNFT(mintQuantity, CONTRACT_ADDRESS)
+      const transaction = prepareContractCall({
+        contract,
+        method: "function mint(uint256 quantity) payable",
+        params: [BigInt(mintQuantity)],
+        value: MINT_PRICE ? MINT_PRICE * BigInt(mintQuantity) : BigInt(0),
+      })
 
-      if (txHash) {
-        await loadCollectionStats()
-
-        toast({
-          title: "Minting Successful!",
-          description: (
-            <div>
-              <p>
-                Successfully minted {mintQuantity} Prime to the Bone NFT{mintQuantity > 1 ? "s" : ""}!
-              </p>
-              <a
-                href={`https://etherscan.io/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:underline text-sm"
-              >
-                View on Etherscan →
-              </a>
-            </div>
-          ),
-        })
-      }
+      sendTransaction(transaction, {
+        onSuccess: (result) => {
+          console.log("[v0] PTTB mint transaction successful:", result.transactionHash)
+          toast({
+            title: "Minting Successful!",
+            description: (
+              <div>
+                <p>
+                  Successfully minted {mintQuantity} Prime to the Bone NFT{mintQuantity > 1 ? "s" : ""}!
+                </p>
+                <p className="text-sm text-gray-400 mt-1">Transaction: {result.transactionHash?.slice(0, 10)}...</p>
+              </div>
+            ),
+          })
+          // Refresh collection stats after successful mint
+          loadCollectionStats()
+        },
+        onError: (error) => {
+          console.error("[v0] PTTB mint transaction failed:", error)
+          toast({
+            title: "Minting Failed",
+            description: error.message || "Failed to mint NFT. Please try again.",
+            variant: "destructive",
+          })
+        },
+      })
     } catch (error: any) {
       console.error("Minting error:", error)
       toast({
@@ -206,7 +221,7 @@ export default function MintPTTBPage() {
         <div className="relative container mx-auto px-4 py-20">
           <div className="text-center mb-12">
             <Badge className="mb-4 bg-red-600 text-white hover:bg-red-600/90 shadow-lg shadow-red-600/20">
-              Prime to the Bone
+              Prime to the Bone • {CHAIN.name}
             </Badge>
             <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-red-500 via-[#fdc730] to-red-400 bg-clip-text text-transparent drop-shadow-lg">
               PTTB Collection
@@ -262,7 +277,7 @@ export default function MintPTTBPage() {
                       <p className="text-gray-400">Prime to the Bone</p>
                     </div>
                     <Badge variant="outline" className="border-red-500 text-red-400 shadow-sm shadow-red-500/20">
-                      {currentArtwork.rarity}
+                      Live on {CHAIN.name}
                     </Badge>
                   </div>
                 </CardContent>
@@ -322,41 +337,18 @@ export default function MintPTTBPage() {
               <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border-l-4 border-l-red-500">
                 <CardHeader>
                   <CardTitle className="text-2xl text-red-400">Mint Prime to the Bone</CardTitle>
-                  <CardDescription>Connect your wallet and join the skeletal collection</CardDescription>
+                  <CardDescription>
+                    Connect your wallet and join the skeletal collection on {CHAIN.name}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Wallet Connection */}
                   {!isConnected ? (
-                    <div className="space-y-4">
-                      <Button
-                        onClick={connectWallet}
-                        className="w-full bg-red-600 hover:bg-red-600/90 text-white font-semibold py-3 shadow-lg shadow-red-600/20"
-                        size="lg"
-                      >
-                        <Wallet className="w-5 h-5 mr-2" />
-                        Connect Wallet
-                      </Button>
-                      {showConnectionGuide && (
-                        <Card className="bg-[#fdc730]/10 border-[#fdc730]/30">
-                          <CardContent className="p-4">
-                            <div className="flex items-start space-x-3">
-                              <div className="w-2 h-2 bg-[#fdc730] rounded-full mt-2 animate-pulse" />
-                              <div>
-                                <p className="text-sm font-medium text-[#fdc730] mb-1">Wallet Connection in Progress</p>
-                                <p className="text-xs text-gray-300">
-                                  Please check your wallet popup and click <strong>"Connect"</strong> or{" "}
-                                  <strong>"Approve"</strong> to continue. Do not click "Cancel" or "Reject".
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                      <div className="bg-green-900/20 border border-green-800/50 rounded-lg p-3">
-                        <p className="text-xs text-green-300 text-center">
-                          ✅ <strong>Wallet connection is working correctly!</strong>
-                          <br />
-                          When your wallet popup appears, click "Connect" to approve the connection.
+                    <div className="space-y-3">
+                      <ConnectWidget />
+                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                        <p className="text-sm text-red-400 text-center">
+                          💡 Make sure you're connected to {CHAIN.name} network
                         </p>
                       </div>
                     </div>
@@ -366,7 +358,7 @@ export default function MintPTTBPage() {
                         <div>
                           <p className="text-sm text-gray-400">Connected Wallet</p>
                           <p className="font-mono text-green-400">
-                            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                            {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
                           </p>
                         </div>
                         <Badge className="bg-green-900 text-green-300">Connected</Badge>
@@ -429,7 +421,7 @@ export default function MintPTTBPage() {
                     <Separator className="bg-gray-700 my-2" />
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Total</span>
-                      <span className="text-red-400 text-xl">{mintPrice * mintQuantity} MATIC</span>
+                      <span className="text-red-400 text-xl">{(mintPrice * mintQuantity).toFixed(2)} MATIC</span>
                     </div>
                   </div>
 
@@ -443,7 +435,7 @@ export default function MintPTTBPage() {
                     {isMinting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                        Minting...
+                        Minting on {CHAIN.name}...
                       </>
                     ) : (
                       `Mint ${mintQuantity} NFT${mintQuantity > 1 ? "s" : ""}`
@@ -452,7 +444,7 @@ export default function MintPTTBPage() {
 
                   {/* Contract Info */}
                   <div className="text-center pt-4">
-                    <p className="text-sm text-gray-400 mb-2">Contract Address</p>
+                    <p className="text-sm text-gray-400 mb-2">Contract Address ({CHAIN.name})</p>
                     <div className="flex items-center justify-center space-x-2">
                       <code className="text-xs bg-gray-900 px-2 py-1 rounded font-mono border border-red-500/20">
                         {CONTRACT_ADDRESS.slice(0, 10)}...{CONTRACT_ADDRESS.slice(-8)}
@@ -460,7 +452,7 @@ export default function MintPTTBPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.open(`https://etherscan.io/address/${CONTRACT_ADDRESS}`, "_blank")}
+                        onClick={() => window.open(`https://polygonscan.com/address/${CONTRACT_ADDRESS}`, "_blank")}
                         className="hover:bg-red-500/10"
                       >
                         <ExternalLink className="w-4 h-4 text-red-400" />

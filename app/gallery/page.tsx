@@ -67,15 +67,67 @@ export default function GalleryPage() {
   const [walletLoading, setWalletLoading] = useState(false)
 
   useEffect(() => {
-    if (isConnected && walletAddress) {
+    const fetchUserNFTs = async () => {
+      if (!isConnected || !walletAddress) {
+        setUserNFTs([])
+        return
+      }
+
       setWalletLoading(true)
-      // TODO: Implement user NFT fetching logic
-      setTimeout(() => {
-        setUserNFTs([]) // Placeholder - implement actual NFT fetching
+      try {
+        console.log("[v0] Fetching user NFTs for wallet:", walletAddress)
+        const allUserNFTs: any[] = []
+
+        // Fetch NFTs from each collection
+        for (const collection of collections) {
+          try {
+            console.log("[v0] Checking collection:", collection.name, "on chain:", collection.chainId)
+
+            // Use thirdweb to fetch user's NFTs from this collection
+            const userCollectionNFTs = await fetchUserNFTsFromCollection(
+              collection.address,
+              walletAddress,
+              collection.chainId,
+            )
+
+            if (userCollectionNFTs.length > 0) {
+              console.log("[v0] Found", userCollectionNFTs.length, "NFTs in", collection.name)
+              allUserNFTs.push(
+                ...userCollectionNFTs.map((nft) => ({
+                  ...nft,
+                  collection: collection.name,
+                  chainId: collection.chainId,
+                })),
+              )
+            }
+          } catch (error) {
+            console.error("[v0] Error fetching NFTs from", collection.name, ":", error)
+          }
+        }
+
+        console.log("[v0] Total user NFTs found:", allUserNFTs.length)
+        setUserNFTs(allUserNFTs)
+      } catch (error) {
+        console.error("[v0] Error fetching user NFTs:", error)
+        setUserNFTs([])
+      } finally {
         setWalletLoading(false)
-      }, 1000)
+      }
     }
+
+    fetchUserNFTs()
   }, [isConnected, walletAddress])
+
+  const fetchUserNFTsFromCollection = async (contractAddress: string, userAddress: string, chainId: number) => {
+    try {
+      // This would use thirdweb's NFT API to fetch user's tokens
+      // For now, return empty array - implement with actual thirdweb calls
+      return []
+    } catch (error) {
+      console.error("Error fetching user NFTs from collection:", error)
+      return []
+    }
+  }
 
   const loadCollectionNFTs = async (collection: (typeof collections)[0]) => {
     setLoading(true)
