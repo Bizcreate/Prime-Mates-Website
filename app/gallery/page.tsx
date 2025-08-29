@@ -50,6 +50,9 @@ interface NFTData {
   description?: string
   attributes?: Array<{ trait_type: string; value: string }>
   owner?: string
+  collection?: string
+  collectionName?: string
+  chain?: string
 }
 
 export default function GalleryPage() {
@@ -63,7 +66,7 @@ export default function GalleryPage() {
   const account = useActiveAccount()
   const walletAddress = account?.address
   const isConnected = !!account
-  const [userNFTs, setUserNFTs] = useState<any[]>([])
+  const [userNFTs, setUserNFTs] = useState<NFTData[]>([])
   const [walletLoading, setWalletLoading] = useState(false)
 
   useEffect(() => {
@@ -77,12 +80,11 @@ export default function GalleryPage() {
       try {
         console.log("[v0] Fetching user NFTs for wallet:", walletAddress)
 
-        // Use API route to fetch NFTs to avoid client-side thirdweb issues
-        const response = await fetch(`/api/nfts/user?address=${walletAddress}`)
+        const response = await fetch(`/api/nfts?wallet=${walletAddress}`)
         if (response.ok) {
           const data = await response.json()
-          console.log("[v0] Total user NFTs found:", data.nfts.length)
-          setUserNFTs(data.nfts)
+          console.log("[v0] Total user NFTs found:", data.total)
+          setUserNFTs(data.nfts || [])
         } else {
           console.error("[v0] Failed to fetch user NFTs")
           setUserNFTs([])
@@ -103,7 +105,6 @@ export default function GalleryPage() {
     try {
       console.log("[v0] Loading NFTs for collection:", collection.name)
 
-      // Use API route to fetch collection NFTs
       const response = await fetch(
         `/api/nfts/collection?address=${collection.address}&chainId=${collection.chainId}&count=12`,
       )
@@ -164,7 +165,6 @@ export default function GalleryPage() {
       if (tokenId > 0 && tokenId <= selectedCollection.totalSupply) {
         console.log("[v0] Searching for NFT", tokenId, "in collection", selectedCollection.name)
 
-        // Use API route to search for specific NFT
         const response = await fetch(
           `/api/nfts/token?address=${selectedCollection.address}&chainId=${selectedCollection.chainId}&tokenId=${tokenId}`,
         )
@@ -238,7 +238,6 @@ export default function GalleryPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
       <div className="relative bg-gradient-to-r from-gray-900 to-black py-20">
         <div className="container mx-auto px-4">
           <div className="text-center">
@@ -256,7 +255,6 @@ export default function GalleryPage() {
       </div>
 
       <div className="container mx-auto px-4 py-12">
-        {/* Tabs for Collections and My Collection */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-gray-900 border border-gray-800 mb-8">
             <TabsTrigger
@@ -274,7 +272,6 @@ export default function GalleryPage() {
           </TabsList>
 
           <TabsContent value="collections">
-            {/* Collection Selector and Search */}
             <div className="flex flex-col lg:flex-row gap-6 mb-12">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Select Collection</label>
@@ -325,7 +322,6 @@ export default function GalleryPage() {
               </div>
             </div>
 
-            {/* Collection Info */}
             <div className="bg-gray-900 rounded-xl p-6 mb-8 border border-gray-800">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -348,7 +344,6 @@ export default function GalleryPage() {
               </div>
             </div>
 
-            {/* Searched NFT Result */}
             {searchedNFT && (
               <div className="mb-12">
                 <h3 className="text-2xl font-bold mb-6 text-center">
@@ -393,7 +388,6 @@ export default function GalleryPage() {
               </div>
             )}
 
-            {/* NFT Grid */}
             <div>
               <h3 className="text-2xl font-bold mb-6 text-center">
                 <span
@@ -491,9 +485,12 @@ export default function GalleryPage() {
               </div>
             ) : userNFTs.length > 0 ? (
               <div>
-                {/* Group NFTs by collection */}
                 {collections.map((collection) => {
-                  const collectionNFTs = userNFTs.filter((nft) => nft.collection === collection.name)
+                  const collectionNFTs = userNFTs.filter(
+                    (nft) =>
+                      (nft.collection === "PMBC" && collection.name === "Prime Mates Board Club") ||
+                      (nft.collection === "PTTB" && collection.name === "Prime To The Bone"),
+                  )
                   if (collectionNFTs.length === 0) return null
 
                   return (
@@ -512,7 +509,7 @@ export default function GalleryPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {collectionNFTs.map((nft) => (
                           <Card
-                            key={nft.id}
+                            key={`${nft.collection}-${nft.tokenId}`}
                             className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition-all duration-300 group"
                           >
                             <CardContent className="p-4">
@@ -528,29 +525,13 @@ export default function GalleryPage() {
                                 <Badge variant="secondary" className="bg-gray-800 text-gray-300">
                                   #{nft.tokenId}
                                 </Badge>
-                                {nft.rarity && (
-                                  <Badge
-                                    variant="secondary"
-                                    className={`bg-gradient-to-r ${getThemeColors(collection.theme)} text-black`}
-                                  >
-                                    {nft.rarity}
-                                  </Badge>
-                                )}
+                                <Badge variant="secondary" className="bg-gray-800 text-gray-300">
+                                  {nft.chain === "ethereum" ? "ETH" : "MATIC"}
+                                </Badge>
                               </div>
                               <div className="flex gap-2">
                                 <Button
-                                  onClick={() =>
-                                    openGestureBuilder(
-                                      {
-                                        tokenId: nft.tokenId,
-                                        name: nft.name,
-                                        image: nft.image,
-                                        description: nft.description,
-                                        owner: walletAddress,
-                                      },
-                                      collection.name,
-                                    )
-                                  }
+                                  onClick={() => openGestureBuilder(nft, collection.name)}
                                   className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
                                   size="sm"
                                 >
