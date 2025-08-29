@@ -8,21 +8,21 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, ExternalLink, Loader2, Palette } from "lucide-react"
-import { fetchCollectionNFTs, fetchNFTByTokenId } from "@/lib/web3-utils"
 import { useActiveAccount } from "thirdweb/react"
 import { ConnectWidget } from "@/components/ConnectWidget"
+import { CONTRACTS } from "@/config/contracts"
 
 const collections = [
   {
     name: "Prime Mates Board Club",
-    address: "0x12662b6a2a424a0090b7d09401fb775a9b968898",
+    address: CONTRACTS.PMBC.address,
     totalSupply: 2222,
     theme: "gold",
     chainId: 1, // Ethereum mainnet
   },
   {
     name: "Prime To The Bone",
-    address: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75",
+    address: CONTRACTS.PTTB.address,
     totalSupply: 999,
     theme: "red",
     chainId: 137, // Polygon
@@ -32,7 +32,7 @@ const collections = [
     address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8",
     totalSupply: 666,
     theme: "orange",
-    chainId: 1, // Updated Prime Halloween to Ethereum mainnet
+    chainId: 1, // Ethereum mainnet
   },
   {
     name: "Prime Mates Christmas Club",
@@ -76,37 +76,17 @@ export default function GalleryPage() {
       setWalletLoading(true)
       try {
         console.log("[v0] Fetching user NFTs for wallet:", walletAddress)
-        const allUserNFTs: any[] = []
 
-        // Fetch NFTs from each collection
-        for (const collection of collections) {
-          try {
-            console.log("[v0] Checking collection:", collection.name, "on chain:", collection.chainId)
-
-            // Use thirdweb to fetch user's NFTs from this collection
-            const userCollectionNFTs = await fetchUserNFTsFromCollection(
-              collection.address,
-              walletAddress,
-              collection.chainId,
-            )
-
-            if (userCollectionNFTs.length > 0) {
-              console.log("[v0] Found", userCollectionNFTs.length, "NFTs in", collection.name)
-              allUserNFTs.push(
-                ...userCollectionNFTs.map((nft) => ({
-                  ...nft,
-                  collection: collection.name,
-                  chainId: collection.chainId,
-                })),
-              )
-            }
-          } catch (error) {
-            console.error("[v0] Error fetching NFTs from", collection.name, ":", error)
-          }
+        // Use API route to fetch NFTs to avoid client-side thirdweb issues
+        const response = await fetch(`/api/nfts/user?address=${walletAddress}`)
+        if (response.ok) {
+          const data = await response.json()
+          console.log("[v0] Total user NFTs found:", data.nfts.length)
+          setUserNFTs(data.nfts)
+        } else {
+          console.error("[v0] Failed to fetch user NFTs")
+          setUserNFTs([])
         }
-
-        console.log("[v0] Total user NFTs found:", allUserNFTs.length)
-        setUserNFTs(allUserNFTs)
       } catch (error) {
         console.error("[v0] Error fetching user NFTs:", error)
         setUserNFTs([])
@@ -118,47 +98,44 @@ export default function GalleryPage() {
     fetchUserNFTs()
   }, [isConnected, walletAddress])
 
-  const fetchUserNFTsFromCollection = async (contractAddress: string, userAddress: string, chainId: number) => {
-    try {
-      // This would use thirdweb's NFT API to fetch user's tokens
-      // For now, return empty array - implement with actual thirdweb calls
-      return []
-    } catch (error) {
-      console.error("Error fetching user NFTs from collection:", error)
-      return []
-    }
-  }
-
   const loadCollectionNFTs = async (collection: (typeof collections)[0]) => {
     setLoading(true)
     try {
       console.log("[v0] Loading NFTs for collection:", collection.name)
 
-      const fetchedNFTs = await fetchCollectionNFTs(collection.address, collection.chainId, 1, 12)
+      // Use API route to fetch collection NFTs
+      const response = await fetch(
+        `/api/nfts/collection?address=${collection.address}&chainId=${collection.chainId}&count=12`,
+      )
 
-      if (fetchedNFTs.length > 0) {
-        console.log("[v0] Successfully loaded", fetchedNFTs.length, "real NFTs")
-        setNfts(fetchedNFTs)
-      } else {
-        console.log("[v0] No real NFTs found, using placeholders")
-        const sampleNFTs: NFTData[] = []
-        const sampleCount = Math.min(12, collection.totalSupply)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.nfts && data.nfts.length > 0) {
+          console.log("[v0] Successfully loaded", data.nfts.length, "real NFTs")
+          setNfts(data.nfts)
+        } else {
+          console.log("[v0] No NFTs found, using placeholders")
+          const sampleNFTs: NFTData[] = []
+          const sampleCount = Math.min(12, collection.totalSupply)
 
-        for (let i = 1; i <= sampleCount; i++) {
-          const tokenId = Math.floor(Math.random() * collection.totalSupply) + 1
-          sampleNFTs.push({
-            tokenId: tokenId.toString(),
-            name: `${collection.name} #${tokenId}`,
-            image: "/abstract-nft-concept.png",
-            description: `A unique ${collection.name} NFT with distinctive traits and characteristics.`,
-            attributes: [
-              { trait_type: "Rarity", value: ["Common", "Rare", "Epic", "Legendary"][Math.floor(Math.random() * 4)] },
-              { trait_type: "Background", value: ["Blue", "Red", "Green", "Purple"][Math.floor(Math.random() * 4)] },
-              { trait_type: "Eyes", value: ["Normal", "Laser", "Glowing", "Closed"][Math.floor(Math.random() * 4)] },
-            ],
-          })
+          for (let i = 1; i <= sampleCount; i++) {
+            const tokenId = Math.floor(Math.random() * collection.totalSupply) + 1
+            sampleNFTs.push({
+              tokenId: tokenId.toString(),
+              name: `${collection.name} #${tokenId}`,
+              image: "/abstract-nft-concept.png",
+              description: `A unique ${collection.name} NFT with distinctive traits and characteristics.`,
+              attributes: [
+                { trait_type: "Rarity", value: ["Common", "Rare", "Epic", "Legendary"][Math.floor(Math.random() * 4)] },
+                { trait_type: "Background", value: ["Blue", "Red", "Green", "Purple"][Math.floor(Math.random() * 4)] },
+                { trait_type: "Eyes", value: ["Normal", "Laser", "Glowing", "Closed"][Math.floor(Math.random() * 4)] },
+              ],
+            })
+          }
+          setNfts(sampleNFTs)
         }
-        setNfts(sampleNFTs)
+      } else {
+        throw new Error("Failed to fetch collection NFTs")
       }
     } catch (error) {
       console.error("[v0] Error loading NFTs:", error)
@@ -187,25 +164,41 @@ export default function GalleryPage() {
       if (tokenId > 0 && tokenId <= selectedCollection.totalSupply) {
         console.log("[v0] Searching for NFT", tokenId, "in collection", selectedCollection.name)
 
-        const realNFT = await fetchNFTByTokenId(selectedCollection.address, tokenId, selectedCollection.chainId)
+        // Use API route to search for specific NFT
+        const response = await fetch(
+          `/api/nfts/token?address=${selectedCollection.address}&chainId=${selectedCollection.chainId}&tokenId=${tokenId}`,
+        )
 
-        if (realNFT) {
-          console.log("[v0] Found real NFT: ", `#${realNFT.tokenId}`)
-          setSearchedNFT(realNFT)
-        } else {
-          console.log("[v0] NFT not found or not minted, showing placeholder")
-          const searchResult: NFTData = {
-            tokenId: tokenId.toString(),
-            name: `${selectedCollection.name} #${tokenId}`,
-            image: "/abstract-nft-concept.png",
-            description: `${selectedCollection.name} NFT #${tokenId} - This token may not be minted yet.`,
-            attributes: [{ trait_type: "Status", value: "Not Minted" }],
+        if (response.ok) {
+          const data = await response.json()
+          if (data.nft) {
+            console.log("[v0] Found real NFT: ", `#${data.nft.tokenId}`)
+            setSearchedNFT(data.nft)
+          } else {
+            console.log("[v0] NFT not found or not minted, showing placeholder")
+            const searchResult: NFTData = {
+              tokenId: searchTokenId,
+              name: `${selectedCollection.name} #${searchTokenId}`,
+              image: "/placeholder.svg",
+              description: `${selectedCollection.name} NFT #${searchTokenId} - This token may not be minted yet.`,
+              attributes: [{ trait_type: "Status", value: "Not Minted" }],
+            }
+            setSearchedNFT(searchResult)
           }
-          setSearchedNFT(searchResult)
+        } else {
+          throw new Error("Failed to search NFT")
         }
       }
     } catch (error) {
       console.error("[v0] Error searching NFT:", error)
+      const searchResult: NFTData = {
+        tokenId: searchTokenId,
+        name: `${selectedCollection.name} #${searchTokenId}`,
+        image: "/placeholder.svg",
+        description: `${selectedCollection.name} NFT #${searchTokenId} - This token may not be minted yet.`,
+        attributes: [{ trait_type: "Status", value: "Not Minted" }],
+      }
+      setSearchedNFT(searchResult)
     } finally {
       setLoading(false)
     }
@@ -584,8 +577,9 @@ export default function GalleryPage() {
             ) : isConnected ? (
               <div className="text-center py-20">
                 <div className="text-gray-400 mb-4">No Prime Mates NFTs found in your wallet</div>
-                <p className="text-sm text-gray-500">
-                  Make sure you're connected to the correct wallet and have NFTs from our collections
+                <p className="text-sm text-gray-500">Connected wallet: {walletAddress}</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Make sure you're connected to the wallet that holds your Prime Mates NFTs
                 </p>
               </div>
             ) : null}
