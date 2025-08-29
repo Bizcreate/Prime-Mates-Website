@@ -44,7 +44,6 @@
     "@radix-ui/react-tooltip": "latest",
     "@react-native-async-storage/async-storage": "latest",
     "@tanstack/react-query": "^5.59.0",
-    "@tonconnect/ui-react": "latest",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
