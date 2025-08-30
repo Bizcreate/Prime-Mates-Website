@@ -18,7 +18,6 @@ export function Navigation() {
     { name: "Gallery", href: "/gallery" },
     { name: "Mint", href: "/mint" },
     { name: "Mint PTTB", href: "/mint-pttb" },
-    { name: "Stake", href: "/stake" },
     { name: "Dashboard", href: "/dashboard" },
     { name: "Community", href: "/community" },
     { name: "Games & Prime Arcade", href: "/games" },
