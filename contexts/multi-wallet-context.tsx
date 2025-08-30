@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useActiveAccount, useDisconnect } from "thirdweb/react"
-import { fetchUserNFTs, type NFTMetadata } from "@/lib/web3-utils"
+import type { NFTMetadata } from "@/lib/web3-utils"
 
 interface WalletProfile {
   id: string
@@ -48,8 +48,45 @@ export function MultiWalletProvider({ children }: { children: ReactNode }) {
     }
   }, [currentAddress])
 
+  const fetchWalletNFTs = async (address: string): Promise<NFTMetadata[]> => {
+    try {
+      console.log("[v0] Fetching NFTs for wallet:", address)
+
+      // Use the NFT API endpoint that handles thirdweb integration
+      const response = await fetch(`/api/nfts?wallet=${address}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("[v0] API response:", data)
+
+      if (data.success && Array.isArray(data.nfts)) {
+        console.log("[v0] Found", data.nfts.length, "NFTs for wallet", address)
+        return data.nfts.map((nft: any) => ({
+          id: `${nft.contractAddress}-${nft.tokenId}`,
+          name: nft.name || `Token #${nft.tokenId}`,
+          image: nft.image || "/abstract-nft-concept.png",
+          tokenId: nft.tokenId.toString(),
+          collection: nft.collection || "Unknown Collection",
+          contractAddress: nft.contractAddress,
+          chainId: nft.chainId || 1,
+          description: nft.description,
+          attributes: nft.attributes || [],
+        }))
+      }
+
+      console.log("[v0] No NFTs found or invalid response format")
+      return []
+    } catch (error) {
+      console.error("[v0] Error fetching NFTs for wallet:", address, error)
+      return []
+    }
+  }
+
   const createWalletProfile = async (address: string, label: string, isPrimary = false): Promise<WalletProfile> => {
-    const nfts = await fetchUserNFTs(address)
+    console.log("[v0] Creating wallet profile for:", address)
+    const nfts = await fetchWalletNFTs(address)
 
     return {
       id: `wallet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -115,8 +152,10 @@ export function MultiWalletProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true)
     try {
-      const nfts = await fetchUserNFTs(wallet.address)
+      console.log("[v0] Refreshing wallet:", wallet.address)
+      const nfts = await fetchWalletNFTs(wallet.address)
       setWallets((prev) => prev.map((w) => (w.id === walletId ? { ...w, nfts, lastUpdated: new Date() } : w)))
+      console.log("[v0] Refreshed wallet with", nfts.length, "NFTs")
     } catch (error) {
       console.error("[v0] Error refreshing wallet:", error)
     } finally {
@@ -127,10 +166,11 @@ export function MultiWalletProvider({ children }: { children: ReactNode }) {
   const refreshAllWallets = async () => {
     setIsLoading(true)
     try {
+      console.log("[v0] Refreshing all wallets")
       const updatedWallets = await Promise.all(
         wallets.map(async (wallet) => {
           try {
-            const nfts = await fetchUserNFTs(wallet.address)
+            const nfts = await fetchWalletNFTs(wallet.address)
             return { ...wallet, nfts, lastUpdated: new Date() }
           } catch (error) {
             console.error(`[v0] Error refreshing wallet ${wallet.address}:`, error)
@@ -139,6 +179,7 @@ export function MultiWalletProvider({ children }: { children: ReactNode }) {
         }),
       )
       setWallets(updatedWallets)
+      console.log("[v0] Refreshed all wallets")
     } finally {
       setIsLoading(false)
     }
