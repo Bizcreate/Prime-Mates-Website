@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getContract, getNFTs } from "thirdweb"
 import { ethereum, polygon } from "thirdweb/chains"
 import { client } from "@/lib/client"
+import { COLLECTIONS } from "@/config/contracts"
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       const pmbcContract = getContract({
         client,
         chain: ethereum,
-        address: "0x13928eb9a86c8278a45b6ff2935c7730b58ac675",
+        address: COLLECTIONS.pmbc.address,
       })
 
       const pmbcNFTs = await getNFTs({
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
               image: nft.metadata.image || "/pmbc-nft.png",
               collection: "PMBC",
               chain: "ethereum",
-              contractAddress: "0x13928eb9a86c8278a45b6ff2935c7730b58ac675",
+              contractAddress: COLLECTIONS.pmbc.address,
               tokenId: nft.id.toString(),
               metadata: nft.metadata,
             })
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       const pttbContract = getContract({
         client,
         chain: polygon,
-        address: "0x6be69b2a9b153737887cfcdca7781ed1511c7e36",
+        address: COLLECTIONS.pttb.address,
       })
 
       const pttbNFTs = await getNFTs({
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
               image: nft.metadata.image || "/pttb-nft.png",
               collection: "PTTB",
               chain: "polygon",
-              contractAddress: "0x6be69b2a9b153737887cfcdca7781ed1511c7e36",
+              contractAddress: COLLECTIONS.pttb.address,
               tokenId: nft.id.toString(),
               metadata: nft.metadata,
             })
