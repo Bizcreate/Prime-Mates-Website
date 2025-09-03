@@ -12,6 +12,8 @@ const wallets = [
   createWallet("me.rainbow"),
   createWallet("com.trustwallet.app"),
   createWallet("io.zerion.wallet"),
+  // Add Telegram wallet for Prime Arcade integration
+  ...(typeof window !== "undefined" && window.Telegram ? [createWallet("org.telegram.wallet")] : []),
 ]
 
 export default function ConnectWidget() {
@@ -19,7 +21,7 @@ export default function ConnectWidget() {
     <ConnectButton
       client={client}
       wallets={wallets}
-      chains={supportedChains} // Use chains array instead of single chain
+      chains={supportedChains}
       connectButton={{
         label: "Connect Wallet",
         className:
