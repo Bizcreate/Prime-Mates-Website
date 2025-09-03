@@ -56,7 +56,6 @@
     "ethers": "latest",
     "expo-linking": "latest",
     "expo-web-browser": "latest",
-    "firebase": "latest",
     "input-otp": "latest",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.454.0",
