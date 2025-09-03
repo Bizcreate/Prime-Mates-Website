@@ -22,6 +22,31 @@ export const convertIpfsUrl = (url) => {
   return url
 }
 
+export const parseNFTMetadata = async (metadata: any) => {
+  if (!metadata) return {}
+
+  // Handle different metadata formats
+  if (typeof metadata === "string") {
+    try {
+      return JSON.parse(metadata)
+    } catch (e) {
+      return { name: metadata }
+    }
+  }
+
+  // For Polygon NFTs, check if image field contains JSON metadata
+  if (typeof metadata.image === "string" && metadata.image.startsWith("{")) {
+    try {
+      const jsonMetadata = JSON.parse(metadata.image)
+      return { ...metadata, ...jsonMetadata }
+    } catch (e) {
+      // Keep original metadata if parsing fails
+    }
+  }
+
+  return metadata
+}
+
 export const fetchUserNFTs = async (walletAddress) => {
   if (!walletAddress) return []
 
@@ -55,6 +80,9 @@ export const fetchUserNFTs = async (walletAddress) => {
                   // Keep original metadata if parsing fails
                 }
               }
+
+              // Use parseNFTMetadata function to handle metadata parsing
+              metadata = await parseNFTMetadata(metadata)
 
               allNFTs.push({
                 ...nft,

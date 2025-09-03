@@ -87,26 +87,20 @@ export default function GalleryPage() {
   const loadCollectionNFTs = async (collection: (typeof collections)[0]) => {
     setLoading(true)
     try {
-      console.log("[v0] Loading NFTs for collection:", collection.name)
+      console.log("[v0] Loading real NFTs for collection:", collection.name)
 
-      const sampleNFTs: NFTData[] = []
-      const sampleCount = Math.min(12, collection.totalSupply)
+      const response = await fetch(
+        `/api/collection-nfts?address=${collection.address}&chainId=${collection.chainId}&limit=12`,
+      )
+      const data = await response.json()
 
-      for (let i = 1; i <= sampleCount; i++) {
-        const tokenId = Math.floor(Math.random() * collection.totalSupply) + 1
-        sampleNFTs.push({
-          tokenId: tokenId.toString(),
-          name: `${collection.name} #${tokenId}`,
-          image: collection.name.includes("PMBC") ? "/pmbc-nft.png" : "/pttb-nft.png",
-          description: `A unique ${collection.name} NFT with distinctive traits and characteristics.`,
-          attributes: [
-            { trait_type: "Rarity", value: ["Common", "Rare", "Epic", "Legendary"][Math.floor(Math.random() * 4)] },
-            { trait_type: "Background", value: ["Blue", "Red", "Green", "Purple"][Math.floor(Math.random() * 4)] },
-            { trait_type: "Eyes", value: ["Normal", "Laser", "Glowing", "Closed"][Math.floor(Math.random() * 4)] },
-          ],
-        })
+      if (data.success) {
+        console.log("[v0] Successfully loaded", data.nfts.length, "real NFTs from blockchain")
+        setNfts(data.nfts)
+      } else {
+        console.error("[v0] Error loading collection NFTs:", data.error)
+        setNfts([])
       }
-      setNfts(sampleNFTs)
     } catch (error) {
       console.error("[v0] Error loading NFTs:", error)
       setNfts([])
@@ -122,16 +116,19 @@ export default function GalleryPage() {
     try {
       const tokenId = Number.parseInt(searchTokenId)
       if (tokenId > 0 && tokenId <= selectedCollection.totalSupply) {
-        console.log("[v0] Searching for NFT", tokenId, "in collection", selectedCollection.name)
+        console.log("[v0] Searching for real NFT", tokenId, "in collection", selectedCollection.name)
 
-        const searchResult: NFTData = {
-          tokenId: tokenId.toString(),
-          name: `${selectedCollection.name} #${tokenId}`,
-          image: selectedCollection.name.includes("PMBC") ? "/pmbc-nft.png" : "/pttb-nft.png",
-          description: `${selectedCollection.name} NFT #${tokenId} - This token may not be minted yet.`,
-          attributes: [{ trait_type: "Status", value: "Searching..." }],
+        const response = await fetch(
+          `/api/nft-details?address=${selectedCollection.address}&chainId=${selectedCollection.chainId}&tokenId=${tokenId}`,
+        )
+        const data = await response.json()
+
+        if (data.success) {
+          setSearchedNFT(data.nft)
+        } else {
+          console.error("[v0] Error searching NFT:", data.error)
+          setSearchedNFT(null)
         }
-        setSearchedNFT(searchResult)
       }
     } catch (error) {
       console.error("[v0] Error searching NFT:", error)
