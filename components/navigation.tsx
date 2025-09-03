@@ -22,7 +22,6 @@ export function Navigation() {
     { name: "Community", href: "/community" },
     { name: "Games & Prime Arcade", href: "/games" },
     { name: "Merch", href: "/merch" },
-    { name: "User Management", href: "/user-management" },
     { name: "About", href: "/#about" },
     { name: "Contact", href: "/#contact" },
   ]
