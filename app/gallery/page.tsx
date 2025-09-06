@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, ExternalLink, Loader2, Palette } from "lucide-react"
-import { fetchCollectionNFTs, fetchNFTByTokenId } from "@/lib/web3-utils"
+import { fetchCollectionNFTs, fetchNFTByTokenId, fetchUserNFTsFromContract } from "@/lib/web3-utils"
 import { useActiveAccount } from "thirdweb/react"
 import { ConnectWidget } from "@/components/ConnectWidget"
 
@@ -50,6 +50,7 @@ interface NFTData {
   description?: string
   attributes?: Array<{ trait_type: string; value: string }>
   owner?: string
+  collection?: string
 }
 
 export default function GalleryPage() {
@@ -92,13 +93,7 @@ export default function GalleryPage() {
 
             if (userCollectionNFTs.length > 0) {
               console.log("[v0] Found", userCollectionNFTs.length, "NFTs in", collection.name)
-              allUserNFTs.push(
-                ...userCollectionNFTs.map((nft) => ({
-                  ...nft,
-                  collection: collection.name,
-                  chainId: collection.chainId,
-                })),
-              )
+              allUserNFTs.push(...userCollectionNFTs)
             }
           } catch (error) {
             console.error("[v0] Error fetching NFTs from", collection.name, ":", error)
@@ -120,9 +115,21 @@ export default function GalleryPage() {
 
   const fetchUserNFTsFromCollection = async (contractAddress: string, userAddress: string, chainId: number) => {
     try {
-      // This would use thirdweb's NFT API to fetch user's tokens
-      // For now, return empty array - implement with actual thirdweb calls
-      return []
+      console.log("[v0] Fetching user NFTs from contract:", contractAddress, "for user:", userAddress)
+
+      // Use the web3-utils function that properly integrates with thirdweb
+      const userNFTs = await fetchUserNFTsFromContract(contractAddress, userAddress, chainId)
+
+      return userNFTs.map((nft) => ({
+        tokenId: nft.tokenId,
+        name: nft.name || `NFT #${nft.tokenId}`,
+        image: nft.image,
+        description: nft.description,
+        attributes: nft.attributes || [],
+        collection:
+          collections.find((c) => c.address.toLowerCase() === contractAddress.toLowerCase())?.name || "Unknown",
+        chainId,
+      }))
     } catch (error) {
       console.error("Error fetching user NFTs from collection:", error)
       return []

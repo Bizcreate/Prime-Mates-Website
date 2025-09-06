@@ -184,3 +184,88 @@ export async function fetchNFTByTokenId(
     return null
   }
 }
+
+export async function fetchUserNFTsFromContract(
+  contractAddress: string,
+  userAddress: string,
+  chainId: number,
+): Promise<NFTData[]> {
+  try {
+    const collection = COLLECTIONS.find((c) => c.address.toLowerCase() === contractAddress.toLowerCase())
+    if (!collection) {
+      throw new Error("Collection not found")
+    }
+
+    const contract = getContract({
+      client,
+      chain: collection.chain,
+      address: contractAddress,
+    })
+
+    const userNFTs: NFTData[] = []
+
+    try {
+      // Get user's balance first
+      const balance = await readContract({
+        contract,
+        method: "function balanceOf(address owner) view returns (uint256)",
+        params: [userAddress],
+      })
+
+      const balanceNumber = Number(balance)
+      console.log(`[v0] User ${userAddress} has ${balanceNumber} NFTs in ${collection.name}`)
+
+      if (balanceNumber === 0) {
+        return []
+      }
+
+      // Get each token owned by the user
+      for (let i = 0; i < balanceNumber; i++) {
+        try {
+          const tokenId = await readContract({
+            contract,
+            method: "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+            params: [userAddress, BigInt(i)],
+          })
+
+          const tokenIdNumber = Number(tokenId)
+
+          // Get token metadata
+          const tokenURI = await readContract({
+            contract,
+            method: "function tokenURI(uint256 tokenId) view returns (string)",
+            params: [BigInt(tokenIdNumber)],
+          })
+
+          if (tokenURI) {
+            const metadataUrl = convertIpfsUrl(tokenURI)
+            const response = await fetch(metadataUrl)
+            const metadata = await response.json()
+            const parsedMetadata = parseNFTMetadata(metadata)
+
+            userNFTs.push({
+              tokenId: tokenIdNumber.toString(),
+              name: parsedMetadata.name || `${collection.name} #${tokenIdNumber}`,
+              image: convertIpfsUrl(parsedMetadata.image || ""),
+              description: parsedMetadata.description || "",
+              attributes: parsedMetadata.attributes || [],
+              owner: userAddress,
+            })
+          }
+        } catch (tokenError) {
+          console.error(`Error fetching token ${i} for user ${userAddress}:`, tokenError)
+          continue
+        }
+      }
+    } catch (balanceError) {
+      console.error(`Error fetching balance for user ${userAddress}:`, balanceError)
+      return []
+    }
+
+    console.log(`[v0] Successfully fetched ${userNFTs.length} NFTs for user ${userAddress} from ${collection.name}`)
+    return userNFTs
+  } catch (error) {
+    console.error("Error fetching user NFTs from contract:", error)
+    return []
+  }
+}
