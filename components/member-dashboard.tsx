@@ -1,349 +1,271 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useActiveAccount, useDisconnect } from "thirdweb/react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Crown, Zap, ImageIcon, Coins, TrendingUp, Gift, RefreshCw } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { useActiveAccount, useWalletBalance } from "thirdweb/react"
+import { client } from "@/lib/client"
+import { ethereum, polygon } from "thirdweb/chains"
+import { fetchUserNFTsFromContract } from "@/lib/web3-utils"
+import { COLLECTIONS } from "@/lib/web3-config"
+import { Wallet, RefreshCw, Trophy, Coins, Star, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
-import { COLLECTIONS } from "@/lib/web3-config"
-import { fetchUserNFTsFromContract } from "@/lib/web3-utils"
-
-interface NFT {
-  collection: string
-  metadata: {
-    id: string
-    name?: string
-    image?: string
-    description?: string
-    attributes?: any[]
-  }
-}
-
-interface UserStats {
-  nftCount: number
-  tier: string
-  tierProgress: number
-  rewardsEarned: number
-  nextTierRequirement: number
-}
 
 export function MemberDashboard() {
-  const account = useActiveAccount()
-  const { disconnect } = useDisconnect()
-  const address = account?.address
-  const isConnected = !!account
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [userNFTs, setUserNFTs] = useState<NFT[]>([])
-  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const activeAccount = useActiveAccount()
+  const address = activeAccount?.address
   const { toast } = useToast()
 
-  const fetchUserNFTs = async () => {
-    if (!address) {
-      console.log("[v0] No address available for NFT fetch")
-      return
-    }
+  const { data: ethBalance } = useWalletBalance({
+    client,
+    chain: ethereum,
+    address: address,
+  })
 
-    setIsLoading(true)
+  const { data: polygonBalance } = useWalletBalance({
+    client,
+    chain: polygon,
+    address: address,
+  })
+
+  const [nftData, setNftData] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [totalNFTs, setTotalNFTs] = useState(0)
+
+  const fetchWalletNFTs = async () => {
+    if (!address) return
+
     console.log("[v0] Starting NFT fetch for address:", address)
-    console.log("[v0] Available collections:", COLLECTIONS.length)
+    setIsLoading(true)
 
     try {
-      const allNFTs: NFT[] = []
+      const allNFTs: any[] = []
 
+      // Fetch from all collections
       for (const collection of COLLECTIONS) {
+        console.log(`[v0] Fetching NFTs from ${collection.name}...`)
         try {
-          console.log(
-            "[v0] Fetching from collection:",
-            collection.name,
-            "at address:",
-            collection.address,
-            "on chain:",
-            collection.chainId,
-          )
+          const nfts = await fetchUserNFTsFromContract(address, collection.address, collection.chain)
+          console.log(`[v0] Found ${nfts.length} NFTs in ${collection.name}`)
 
-          const startTime = Date.now()
-          const nfts = await fetchUserNFTsFromContract(collection.address, address, collection.chainId)
-          const endTime = Date.now()
-
-          console.log("[v0] Collection", collection.name, "fetch completed in", endTime - startTime, "ms")
-          console.log("[v0] Raw NFTs returned:", nfts)
-
-          const formattedNFTs = nfts.map((nft) => ({
-            collection: collection.name,
-            metadata: {
-              id: nft.tokenId,
-              name: nft.name || `${collection.name} #${nft.tokenId}`,
-              image: nft.image,
-              description: nft.description,
-              attributes: nft.attributes || [],
-            },
+          const nftsWithCollection = nfts.map((nft) => ({
+            ...nft,
+            collectionName: collection.name,
+            chain: collection.chain,
           }))
 
-          allNFTs.push(...formattedNFTs)
-          console.log("[v0] Found", formattedNFTs.length, "NFTs in", collection.name)
-          console.log("[v0] Formatted NFTs:", formattedNFTs)
+          allNFTs.push(...nftsWithCollection)
         } catch (error) {
-          console.error("[v0] Error fetching from", collection.name, ":", error)
-          console.error("[v0] Error details:", error instanceof Error ? error.message : String(error))
+          console.error(`[v0] Error fetching from ${collection.name}:`, error)
         }
       }
 
-      console.log("[v0] Total NFTs found:", allNFTs.length)
-      console.log("[v0] All NFTs:", allNFTs)
-
-      setUserNFTs(allNFTs)
-      calculateUserStats(allNFTs.length)
+      console.log(`[v0] Total NFTs found: ${allNFTs.length}`)
+      setNftData(allNFTs)
+      setTotalNFTs(allNFTs.length)
 
       if (allNFTs.length > 0) {
         toast({
-          title: "Portfolio Loaded Successfully",
-          description: `Found ${allNFTs.length} Prime Mates NFTs across ${COLLECTIONS.length} collections!`,
-        })
-      } else {
-        toast({
-          title: "No NFTs Found",
-          description: `Searched ${COLLECTIONS.length} collections but found no Prime Mates NFTs in wallet ${address.slice(0, 6)}...${address.slice(-4)}`,
-          variant: "destructive",
+          title: "NFTs Loaded",
+          description: `Found ${allNFTs.length} NFTs in your wallet`,
         })
       }
     } catch (error) {
-      console.error("[v0] Critical error in fetchUserNFTs:", error)
-      console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+      console.error("[v0] Error fetching NFTs:", error)
       toast({
-        title: "Portfolio Load Failed",
-        description: `Failed to load NFT portfolio: ${error instanceof Error ? error.message : "Unknown error"}`,
+        title: "Error",
+        description: "Failed to load NFT data",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
-      console.log("[v0] NFT fetch process completed")
     }
   }
 
-  const calculateUserStats = (totalNFTCount: number) => {
-    let tier = "Holder"
-    let tierProgress = 0
-    let nextTierRequirement = 3
-
-    if (totalNFTCount >= 16) {
-      tier = "Champion"
-      tierProgress = 100
-      nextTierRequirement = 0
-    } else if (totalNFTCount >= 10) {
-      tier = "Pro"
-      tierProgress = ((totalNFTCount - 10) / 6) * 100
-      nextTierRequirement = 16 - totalNFTCount
-    } else if (totalNFTCount >= 6) {
-      tier = "Amateur"
-      tierProgress = ((totalNFTCount - 6) / 4) * 100
-      nextTierRequirement = 10 - totalNFTCount
-    } else if (totalNFTCount >= 3) {
-      tier = "Grom"
-      tierProgress = ((totalNFTCount - 3) / 3) * 100
-      nextTierRequirement = 6 - totalNFTCount
+  useEffect(() => {
+    if (address) {
+      console.log("[v0] Wallet connected:", address)
+      fetchWalletNFTs()
     } else {
-      tierProgress = (totalNFTCount / 3) * 100
-      nextTierRequirement = 3 - totalNFTCount
+      console.log("[v0] Wallet disconnected, clearing data")
+      setNftData([])
+      setTotalNFTs(0)
     }
+  }, [address])
 
-    setUserStats({
-      nftCount: totalNFTCount,
-      tier,
-      tierProgress,
-      rewardsEarned: totalNFTCount * 125.5,
-      nextTierRequirement,
-    })
+  const handleRefresh = async () => {
+    if (!address) {
+      toast({
+        title: "No Wallet Connected",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      })
+      return
+    }
+    await fetchWalletNFTs()
   }
 
-  useEffect(() => {
-    console.log("[v0] useEffect triggered - isConnected:", isConnected, "address:", address)
-
-    if (isConnected && address) {
-      console.log("[v0] Wallet connected, starting NFT fetch...")
-      fetchUserNFTs()
-    } else {
-      console.log("[v0] Wallet not connected or no address, clearing data")
-      setUserNFTs([])
-      setUserStats(null)
-    }
-  }, [isConnected, address])
-
-  useEffect(() => {
-    console.log("[v0] Account state changed:", {
-      account: account ? "Connected" : "Disconnected",
-      address: address || "None",
-      isConnected,
-    })
-  }, [account, address, isConnected])
-
-  if (!isConnected) {
+  if (!address) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center max-w-2xl mx-auto px-4">
-          <div className="mb-8">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pmbc1.GIF-2YlHT4ki8pFi2FuczRbVv9KvZrgEG2.gif"
-              alt="Prime Mates NFT"
-              width={200}
-              height={200}
-              className="mx-auto rounded-2xl border-2 border-yellow-400"
-            />
-          </div>
-          <h1 className="text-4xl font-bold mb-4 text-yellow-400">PMBC Member Dashboard</h1>
-          <p className="text-xl text-gray-300 mb-8">
-            Connect your wallet to access exclusive member benefits and track your PMBC tier status
-          </p>
-          <div className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-8 text-lg rounded-lg inline-block">
-            Use the Connect Wallet button in the navigation
-          </div>
-        </div>
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Card className="bg-gray-900 border-yellow-400/30 max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <Wallet className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
+            <p className="text-gray-400 mb-6">
+              Connect your wallet to access your Prime Mates dashboard and view your NFT collection.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-black text-white p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-yellow-400">Member Dashboard</h1>
+            <h1 className="text-4xl font-bold text-yellow-400 mb-2">Member Dashboard</h1>
             <p className="text-gray-400">Welcome back, PMBC member!</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-400">Connected Wallet</p>
-            <p className="font-mono text-sm text-yellow-500">{address}</p>
+
+          <div className="flex items-center gap-4 mt-4 sm:mt-0">
+            <div className="text-right">
+              <p className="text-sm text-gray-400">Portfolio Overview</p>
+              <p className="text-lg font-bold text-white">
+                {totalNFTs} NFT{totalNFTs !== 1 ? "s" : ""} owned
+              </p>
+            </div>
             <Button
-              onClick={fetchUserNFTs}
+              onClick={handleRefresh}
               disabled={isLoading}
-              variant="outline"
-              size="sm"
-              className="mt-2 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
+              className="bg-yellow-400 text-black hover:bg-yellow-300"
             >
-              {isLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              Refresh Portfolio
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              {isLoading ? "Loading..." : "Refresh"}
             </Button>
           </div>
         </div>
 
-        {isLoading && (
-          <Card className="bg-gray-900 border-yellow-400/20 mb-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gray-900 border-yellow-400/30">
             <CardContent className="p-6">
-              <div className="flex items-center justify-center">
-                <RefreshCw className="w-6 h-6 animate-spin text-yellow-400 mr-3" />
-                <span className="text-yellow-400">Loading your NFT portfolio...</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <ImageIcon className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-yellow-400">{userNFTs.length}</div>
-              <div className="text-sm text-gray-400">Total NFTs</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <Crown className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
-              <div className="text-lg font-bold text-white">{userStats?.tier || "Holder"}</div>
-              <div className="text-sm text-gray-400">Current Tier</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <TrendingUp className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
-              <div className="text-lg font-bold text-green-400">
-                {userStats?.nextTierRequirement === 0 ? "MAX" : userStats?.nextTierRequirement || "3"}
-              </div>
-              <div className="text-sm text-gray-400">
-                {userStats?.nextTierRequirement === 0 ? "Tier Reached" : "More to Next Tier"}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Total NFTs</p>
+                  <p className="text-3xl font-bold text-yellow-400">{totalNFTs}</p>
+                </div>
+                <Package className="h-8 w-8 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <Coins className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
-              <div className="text-lg font-bold text-yellow-400">1,250</div>
-              <div className="text-sm text-gray-400">$SHAKA Points</div>
+          <Card className="bg-gray-900 border-yellow-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">ETH Balance</p>
+                  <p className="text-2xl font-bold text-white">
+                    {ethBalance ? Number.parseFloat(ethBalance.displayValue).toFixed(4) : "0.0000"}
+                  </p>
+                </div>
+                <Coins className="h-8 w-8 text-blue-400" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <Zap className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-              <div className="text-lg font-bold text-purple-400">890</div>
-              <div className="text-sm text-gray-400">$GRIND Points</div>
+          <Card className="bg-gray-900 border-yellow-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">MATIC Balance</p>
+                  <p className="text-2xl font-bold text-white">
+                    {polygonBalance ? Number.parseFloat(polygonBalance.displayValue).toFixed(4) : "0.0000"}
+                  </p>
+                </div>
+                <Coins className="h-8 w-8 text-purple-400" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-yellow-400/20">
-            <CardContent className="p-6 text-center">
-              <Gift className="h-8 w-8 text-green-400 mx-auto mb-2" />
-              <div className="text-lg font-bold text-green-400">{(userStats?.rewardsEarned || 0).toFixed(2)}</div>
-              <div className="text-sm text-gray-400">PMBC Rewards</div>
+          <Card className="bg-gray-900 border-yellow-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Member Tier</p>
+                  <p className="text-2xl font-bold text-yellow-400">{totalNFTs > 0 ? "Holder" : "Guest"}</p>
+                </div>
+                <Trophy className="h-8 w-8 text-yellow-400" />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="bg-gray-900 border-yellow-400/20">
+        {/* NFT Collection Display */}
+        <Card className="bg-gray-900 border-yellow-400/30">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-yellow-400">Your Prime Mates NFTs ({userNFTs.length})</h2>
-              <Button
-                onClick={fetchUserNFTs}
-                disabled={isLoading}
-                variant="outline"
-                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                )}
-                Refresh
-              </Button>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Star className="h-6 w-6 text-yellow-400" />
+                Your NFT Collection
+              </h2>
+              {totalNFTs > 0 && (
+                <Badge className="bg-yellow-400 text-black">
+                  {totalNFTs} NFT{totalNFTs !== 1 ? "s" : ""}
+                </Badge>
+              )}
             </div>
 
-            {userNFTs.length === 0 ? (
-              <div className="text-center py-12">
-                <ImageIcon className="h-16 w-16 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-gray-400 mb-2">No Prime Mates NFTs found</h3>
-                <p className="text-gray-500 mb-6">Your wallet doesn't contain any Prime Mates NFTs yet</p>
-                <Button onClick={fetchUserNFTs} className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                  Refresh Portfolio
-                </Button>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 text-yellow-400 animate-spin mr-3" />
+                <p className="text-gray-400">Loading your NFTs...</p>
               </div>
-            ) : (
+            ) : nftData.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {userNFTs.map((nft) => (
-                  <Card
-                    key={nft.metadata.id}
-                    className="bg-gray-800 border-gray-700 hover:border-yellow-400 transition-colors"
-                  >
+                {nftData.map((nft, index) => (
+                  <Card key={index} className="bg-black border-gray-700 hover:border-yellow-400/50 transition-colors">
                     <CardContent className="p-4">
-                      <div className="aspect-square mb-4 rounded-lg overflow-hidden bg-gray-700">
-                        <img
-                          src={nft.metadata.image || "/placeholder.svg"}
-                          alt={nft.metadata.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
+                      <div className="aspect-square bg-gray-800 rounded-lg mb-3 overflow-hidden">
+                        {nft.image ? (
+                          <Image
+                            src={nft.image || "/placeholder.svg"}
+                            alt={nft.name || `NFT #${nft.tokenId}`}
+                            width={200}
+                            height={200}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="h-12 w-12 text-gray-600" />
+                          </div>
+                        )}
                       </div>
-                      <h4 className="font-bold text-lg mb-2 text-white">{nft.metadata.name}</h4>
-                      <p className="text-gray-400 text-sm mb-3">{nft.collection}</p>
-                      <Button size="sm" className="w-full bg-yellow-400 hover:bg-yellow-500 text-black">
-                        View Details
-                      </Button>
+                      <h3 className="font-bold text-white text-sm mb-1">
+                        {nft.name || `${nft.collectionName} #${nft.tokenId}`}
+                      </h3>
+                      <p className="text-gray-400 text-xs mb-2">{nft.collectionName}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {nft.chain === "ethereum" ? "ETH" : "POLYGON"}
+                      </Badge>
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Package className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-400 mb-2">No NFTs Found</h3>
+                <p className="text-gray-500 mb-4">
+                  {address
+                    ? "This wallet doesn't contain any Prime Mates NFTs"
+                    : "Connect your wallet to view your NFTs"}
+                </p>
               </div>
             )}
           </CardContent>
