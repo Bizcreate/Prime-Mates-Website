@@ -80,7 +80,6 @@
     "thirdweb": "latest",
     "vaul": "latest",
     "viem": "latest",
-    "wagmi": "latest",
     "zod": "^3.24.1"
   },
   "devDependencies": {
