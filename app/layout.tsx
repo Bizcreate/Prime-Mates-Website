@@ -5,9 +5,8 @@ import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CartProvider } from "@/context/cart-context"
-import { ThirdwebProvider } from "thirdweb/react"
-import { client } from "@/lib/client"
 import { Toaster } from "@/components/ui/toaster"
+import Providers from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,13 +25,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <ThirdwebProvider client={client}>
+          <Providers>
             <CartProvider>
               <Navigation />
               <div className="pt-20">{children}</div>
               <Toaster />
             </CartProvider>
-          </ThirdwebProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
