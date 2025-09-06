@@ -41,19 +41,35 @@ export function MemberDashboard() {
   const { toast } = useToast()
 
   const fetchUserNFTs = async () => {
-    if (!address) return
+    if (!address) {
+      console.log("[v0] No address available for NFT fetch")
+      return
+    }
 
     setIsLoading(true)
     console.log("[v0] Starting NFT fetch for address:", address)
+    console.log("[v0] Available collections:", COLLECTIONS.length)
 
     try {
       const allNFTs: NFT[] = []
 
-      // Fetch from each collection
       for (const collection of COLLECTIONS) {
         try {
-          console.log("[v0] Fetching from collection:", collection.name)
+          console.log(
+            "[v0] Fetching from collection:",
+            collection.name,
+            "at address:",
+            collection.address,
+            "on chain:",
+            collection.chainId,
+          )
+
+          const startTime = Date.now()
           const nfts = await fetchUserNFTsFromContract(collection.address, address, collection.chainId)
+          const endTime = Date.now()
+
+          console.log("[v0] Collection", collection.name, "fetch completed in", endTime - startTime, "ms")
+          console.log("[v0] Raw NFTs returned:", nfts)
 
           const formattedNFTs = nfts.map((nft) => ({
             collection: collection.name,
@@ -68,35 +84,42 @@ export function MemberDashboard() {
 
           allNFTs.push(...formattedNFTs)
           console.log("[v0] Found", formattedNFTs.length, "NFTs in", collection.name)
+          console.log("[v0] Formatted NFTs:", formattedNFTs)
         } catch (error) {
           console.error("[v0] Error fetching from", collection.name, ":", error)
+          console.error("[v0] Error details:", error instanceof Error ? error.message : String(error))
         }
       }
 
       console.log("[v0] Total NFTs found:", allNFTs.length)
+      console.log("[v0] All NFTs:", allNFTs)
+
       setUserNFTs(allNFTs)
       calculateUserStats(allNFTs.length)
 
       if (allNFTs.length > 0) {
         toast({
-          title: "Portfolio Loaded",
-          description: `Found ${allNFTs.length} Prime Mates NFTs in your wallet!`,
+          title: "Portfolio Loaded Successfully",
+          description: `Found ${allNFTs.length} Prime Mates NFTs across ${COLLECTIONS.length} collections!`,
         })
       } else {
         toast({
           title: "No NFTs Found",
-          description: "No Prime Mates NFTs found in this wallet",
+          description: `Searched ${COLLECTIONS.length} collections but found no Prime Mates NFTs in wallet ${address.slice(0, 6)}...${address.slice(-4)}`,
+          variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("[v0] Error fetching user NFTs:", error)
+      console.error("[v0] Critical error in fetchUserNFTs:", error)
+      console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
       toast({
-        title: "Error",
-        description: "Failed to load your NFT portfolio. Please try again.",
+        title: "Portfolio Load Failed",
+        description: `Failed to load NFT portfolio: ${error instanceof Error ? error.message : "Unknown error"}`,
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
+      console.log("[v0] NFT fetch process completed")
     }
   }
 
@@ -136,15 +159,25 @@ export function MemberDashboard() {
   }
 
   useEffect(() => {
+    console.log("[v0] useEffect triggered - isConnected:", isConnected, "address:", address)
+
     if (isConnected && address) {
-      console.log("[v0] Wallet connected, fetching NFTs...")
+      console.log("[v0] Wallet connected, starting NFT fetch...")
       fetchUserNFTs()
     } else {
-      console.log("[v0] Wallet disconnected, clearing data")
+      console.log("[v0] Wallet not connected or no address, clearing data")
       setUserNFTs([])
       setUserStats(null)
     }
   }, [isConnected, address])
+
+  useEffect(() => {
+    console.log("[v0] Account state changed:", {
+      account: account ? "Connected" : "Disconnected",
+      address: address || "None",
+      isConnected,
+    })
+  }, [account, address, isConnected])
 
   if (!isConnected) {
     return (

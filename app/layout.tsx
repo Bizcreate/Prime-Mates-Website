@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <ThirdwebProvider activeChain="ethereum" client={client}>
+          <ThirdwebProvider client={client}>
             <CartProvider>
               <Navigation />
               <div className="pt-20">{children}</div>
