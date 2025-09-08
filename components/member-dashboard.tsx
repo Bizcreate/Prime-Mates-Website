@@ -14,9 +14,16 @@ import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
 
 export function MemberDashboard() {
+  console.log("[v0] MemberDashboard component rendering...")
+
   const activeAccount = useActiveAccount()
   const address = activeAccount?.address
   const { toast } = useToast()
+
+  console.log("[v0] Active account:", activeAccount)
+  console.log("[v0] Address:", address)
+  console.log("[v0] Client:", client)
+  console.log("[v0] Collections:", COLLECTIONS)
 
   const { data: ethBalance } = useWalletBalance({
     client,
@@ -30,14 +37,21 @@ export function MemberDashboard() {
     address: address,
   })
 
+  console.log("[v0] ETH Balance:", ethBalance)
+  console.log("[v0] Polygon Balance:", polygonBalance)
+
   const [nftData, setNftData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [totalNFTs, setTotalNFTs] = useState(0)
 
   const fetchWalletNFTs = async () => {
-    if (!address) return
+    if (!address) {
+      console.log("[v0] No address provided, skipping NFT fetch")
+      return
+    }
 
     console.log("[v0] Starting NFT fetch for address:", address)
+    console.log("[v0] Available collections:", COLLECTIONS.length)
     setIsLoading(true)
 
     try {
@@ -45,10 +59,11 @@ export function MemberDashboard() {
 
       // Fetch from all collections
       for (const collection of COLLECTIONS) {
-        console.log(`[v0] Fetching NFTs from ${collection.name}...`)
+        console.log(`[v0] Fetching NFTs from ${collection.name} (${collection.address})...`)
         try {
           const nfts = await fetchUserNFTsFromContract(address, collection.address, collection.chain)
           console.log(`[v0] Found ${nfts.length} NFTs in ${collection.name}`)
+          console.log(`[v0] NFT data:`, nfts)
 
           const nftsWithCollection = nfts.map((nft) => ({
             ...nft,
@@ -63,13 +78,21 @@ export function MemberDashboard() {
       }
 
       console.log(`[v0] Total NFTs found: ${allNFTs.length}`)
+      console.log(`[v0] All NFT data:`, allNFTs)
       setNftData(allNFTs)
       setTotalNFTs(allNFTs.length)
 
       if (allNFTs.length > 0) {
+        console.log("[v0] Showing success toast")
         toast({
           title: "NFTs Loaded",
           description: `Found ${allNFTs.length} NFTs in your wallet`,
+        })
+      } else {
+        console.log("[v0] No NFTs found, showing info toast")
+        toast({
+          title: "No NFTs Found",
+          description: "This wallet doesn't contain any Prime Mates NFTs",
         })
       }
     } catch (error) {
@@ -80,11 +103,13 @@ export function MemberDashboard() {
         variant: "destructive",
       })
     } finally {
+      console.log("[v0] NFT fetch completed, setting loading to false")
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
+    console.log("[v0] useEffect triggered, address:", address)
     if (address) {
       console.log("[v0] Wallet connected:", address)
       fetchWalletNFTs()
@@ -96,7 +121,9 @@ export function MemberDashboard() {
   }, [address])
 
   const handleRefresh = async () => {
+    console.log("[v0] Refresh button clicked")
     if (!address) {
+      console.log("[v0] No wallet connected for refresh")
       toast({
         title: "No Wallet Connected",
         description: "Please connect your wallet first",
@@ -107,7 +134,10 @@ export function MemberDashboard() {
     await fetchWalletNFTs()
   }
 
+  console.log("[v0] Rendering dashboard with:", { address, totalNFTs, isLoading, nftDataLength: nftData.length })
+
   if (!address) {
+    console.log("[v0] Rendering wallet connection prompt")
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="bg-gray-900 border-yellow-400/30 max-w-md w-full">
@@ -122,6 +152,8 @@ export function MemberDashboard() {
       </div>
     )
   }
+
+  console.log("[v0] Rendering main dashboard")
 
   return (
     <div className="min-h-screen bg-black text-white p-4">
