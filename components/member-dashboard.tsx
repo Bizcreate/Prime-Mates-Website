@@ -26,6 +26,11 @@ interface UserProfile {
   createdAt: string
 }
 
+interface StakingData {
+  stakedNFTs: number
+  totalPoints: number
+}
+
 export function MemberDashboard() {
   const activeAccount = useActiveAccount()
   const address = activeAccount?.address
@@ -34,6 +39,8 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [stakingData, setStakingData] = useState<StakingData>({ stakedNFTs: 0, totalPoints: 0 })
+  const [stakingLoading, setStakingLoading] = useState<string | null>(null)
 
   const { data: ethBalance } = useWalletBalance({
     client,
@@ -232,10 +239,88 @@ export function MemberDashboard() {
     }
   }
 
+  const loadStakingData = async () => {
+    if (!address) return
+
+    try {
+      const response = await fetch(`/api/staking?wallet=${address}`)
+      if (response.ok) {
+        const data = await response.json()
+        setStakingData(data)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading staking data:", error)
+    }
+  }
+
+  const handleStaking = async (nft: NFTData, action: "stake" | "unstake") => {
+    if (!address) return
+
+    setStakingLoading(`${nft.collection}-${nft.tokenId}`)
+
+    try {
+      const response = await fetch("/api/staking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          walletAddress: address,
+          tokenId: nft.tokenId,
+          collection: nft.collection,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: action === "stake" ? "NFT Staked" : "NFT Unstaked",
+          description: result.message + (result.pointsEarned ? ` (+${result.pointsEarned} points)` : ""),
+        })
+        loadStakingData()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error(`[v0] Error ${action}ing NFT:`, error)
+      toast({
+        title: "Error",
+        description: `Failed to ${action} NFT`,
+        variant: "destructive",
+      })
+    } finally {
+      setStakingLoading(null)
+    }
+  }
+
+  const linkAdditionalWallet = async () => {
+    // This would integrate with thirdweb to connect additional wallets
+    try {
+      // For now, show a prompt for manual wallet address entry
+      const walletAddress = prompt("Enter wallet address to link:")
+      if (walletAddress && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        await addWalletToProfile(walletAddress)
+      } else if (walletAddress) {
+        toast({
+          title: "Invalid Address",
+          description: "Please enter a valid Ethereum address",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Error linking wallet:", error)
+    }
+  }
+
   useEffect(() => {
     if (address) {
       loadUserProfile()
       loadUserNFTs()
+      loadStakingData()
     }
   }, [address])
 
@@ -288,7 +373,7 @@ export function MemberDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card className="bg-gray-900 border-yellow-400/30">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -297,6 +382,30 @@ export function MemberDashboard() {
                   <p className="text-3xl font-bold text-yellow-400">{totalNFTs}</p>
                 </div>
                 <Package className="h-8 w-8 text-yellow-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-yellow-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Staked NFTs</p>
+                  <p className="text-3xl font-bold text-green-400">{stakingData.stakedNFTs}</p>
+                </div>
+                <Star className="h-8 w-8 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-yellow-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Points Earned</p>
+                  <p className="text-3xl font-bold text-purple-400">{stakingData.totalPoints}</p>
+                </div>
+                <Trophy className="h-8 w-8 text-purple-400" />
               </div>
             </CardContent>
           </Card>
@@ -378,9 +487,19 @@ export function MemberDashboard() {
                     <CardContent className="p-4">
                       <h3 className="font-bold text-white mb-1 truncate">{nft.name}</h3>
                       <p className="text-sm text-gray-400 mb-2">{nft.collection}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {nft.chain === "ethereum" ? "Ethereum" : "Polygon"}
-                      </Badge>
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">
+                          {nft.chain === "ethereum" ? "Ethereum" : "Polygon"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => handleStaking(nft, "stake")}
+                          disabled={stakingLoading === `${nft.collection}-${nft.tokenId}`}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {stakingLoading === `${nft.collection}-${nft.tokenId}` ? "..." : "Stake"}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -420,13 +539,7 @@ export function MemberDashboard() {
                   </div>
 
                   <Button
-                    onClick={() => {
-                      // This would open a wallet connection modal for additional wallets
-                      toast({
-                        title: "Feature Coming Soon",
-                        description: "Multi-wallet linking will be available soon",
-                      })
-                    }}
+                    onClick={linkAdditionalWallet}
                     className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
                   >
                     <Plus className="h-4 w-4 mr-2" />
