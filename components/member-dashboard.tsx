@@ -61,7 +61,7 @@ export function MemberDashboard() {
       for (const collection of COLLECTIONS) {
         console.log(`[v0] Fetching NFTs from ${collection.name} (${collection.address})...`)
         try {
-          const nfts = await fetchUserNFTsFromContract(address, collection.address, collection.chain)
+          const nfts = await fetchUserNFTsFromContract(collection.address, address, collection.chainId)
           console.log(`[v0] Found ${nfts.length} NFTs in ${collection.name}`)
           console.log(`[v0] NFT data:`, nfts)
 
