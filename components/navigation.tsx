@@ -7,8 +7,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { CartDisplay } from "@/components/cart-display"
-import { ConnectButton } from "thirdweb/react"
-import { client, wallets } from "@/lib/thirdweb"
+import { WalletConnect } from "@/packages/prime-shared/components/WalletConnect"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
@@ -56,13 +55,7 @@ export function Navigation() {
           {/* Actions */}
           <div className="flex items-center space-x-4">
             <CartDisplay />
-            <ConnectButton
-              client={client}
-              wallets={wallets}
-              theme="dark"
-              connectButton={{ label: "Connect Wallet" }}
-              detailsButton={{ show: "when_connected" }}
-            />
+            <WalletConnect />
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="lg:hidden">

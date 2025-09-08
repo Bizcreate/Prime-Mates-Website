@@ -1,6 +1,6 @@
 "use client"
 import type { ReactNode } from "react"
-import { ThirdwebProvider } from "thirdweb/react"
+import { Web3Provider } from "@/packages/prime-shared/providers/Web3Provider"
 
 /**
  * Global provider keeps connection & query state across routes.
@@ -8,10 +8,9 @@ import { ThirdwebProvider } from "thirdweb/react"
  */
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThirdwebProvider>
-      {/* ThirdwebProvider sets up react-query; ConnectButton receives `client` */}
-      {/* Auto-connect is included in Connect UI; if you build custom UI, mount AutoConnect */}
+    <Web3Provider>
+      {/* Web3Provider includes ThirdwebProvider + Firebase auth + wallet management */}
       {children}
-    </ThirdwebProvider>
+    </Web3Provider>
   )
 }
