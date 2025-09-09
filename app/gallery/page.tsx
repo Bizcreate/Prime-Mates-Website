@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, ExternalLink, Loader2, RefreshCw, Download, Share, Palette, Wand2 } from "lucide-react"
+import { Search, ExternalLink, Loader2, RefreshCw, Download, Share, Palette, Wand2, AlertCircle } from "lucide-react"
 import { useActiveAccount } from "thirdweb/react"
 import { Insight } from "thirdweb"
 import { ethereum, polygon } from "thirdweb/chains"
@@ -113,6 +113,8 @@ export default function GalleryPage() {
   const [nfts, setNfts] = useState<NFTData[]>([])
   const [searchedNFT, setSearchedNFT] = useState<NFTData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
+  const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(1)
   const perPage = 12
 
@@ -199,6 +201,7 @@ export default function GalleryPage() {
 
   async function loadCollectionNFTs(reset = false) {
     setLoading(true)
+    setError("")
     try {
       const usePage = reset ? 1 : page
       const chain = chainFromId(selectedCollection.chainId)
@@ -225,10 +228,30 @@ export default function GalleryPage() {
       }))
 
       setNfts((prev) => (reset ? mapped : [...prev, ...mapped]))
+      setHasMore(mapped.length === perPage)
       if (reset) setPage(1)
     } catch (err) {
       console.error("[gallery] loadCollectionNFTs error", err)
-      setNfts([])
+      if (err?.message?.includes("Unauthorized domain")) {
+        setError("Preview domain not authorized. Collections will be available after deployment.")
+        if (reset) {
+          const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
+            tokenId: (i + 1).toString(),
+            name: `${selectedCollection.name} #${i + 1}`,
+            image: "/prime-mates-nft.jpg",
+            description: `Preview of ${selectedCollection.name} collection`,
+            attributes: [],
+            owner: "",
+            collection: selectedCollection.name,
+            tokenAddress: selectedCollection.address,
+            chainId: selectedCollection.chainId,
+          }))
+          setNfts(placeholderNFTs)
+        }
+      } else {
+        setError("Failed to load NFTs. Please try again.")
+        if (reset) setNfts([])
+      }
     } finally {
       setLoading(false)
     }
@@ -359,6 +382,8 @@ export default function GalleryPage() {
       setSearchedNFT(null)
       setNfts([])
       setPage(1)
+      setError("")
+      setHasMore(true)
       loadCollectionNFTs(true)
     }
   }, [selectedCollection, activeTab])
@@ -560,6 +585,16 @@ export default function GalleryPage() {
                 </span>
               </h3>
 
+              {error && (
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-yellow-400">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="font-medium">Notice</span>
+                  </div>
+                  <p className="text-gray-300 mt-1">{error}</p>
+                </div>
+              )}
+
               {loading && nfts.length === 0 ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
@@ -617,19 +652,21 @@ export default function GalleryPage() {
                     ))}
                   </div>
 
-                  <div className="flex justify-center mt-8">
-                    <Button
-                      onClick={() => {
-                        setPage((p) => p + 1)
-                        loadCollectionNFTs()
-                      }}
-                      disabled={loading}
-                      variant="outline"
-                      className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Load More"}
-                    </Button>
-                  </div>
+                  {hasMore && !error && (
+                    <div className="flex justify-center mt-8">
+                      <Button
+                        onClick={() => {
+                          setPage((p) => p + 1)
+                          loadCollectionNFTs()
+                        }}
+                        disabled={loading}
+                        variant="outline"
+                        className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black"
+                      >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Load More"}
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
