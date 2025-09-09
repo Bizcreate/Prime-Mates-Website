@@ -30,6 +30,7 @@ interface UserProfile {
   email?: string
   connectedWallets: string[]
   createdAt: string
+  shippingAddress?: string
 }
 
 interface StakingData {
@@ -269,16 +270,51 @@ export function MemberDashboard() {
 
   async function loadUserProfile() {
     if (!address) return
+    console.log("[v0] Loading user profile for address:", address)
+
     try {
       const res = await fetch(`/api/profile/${address}`)
       if (res.ok) {
         const profile = await res.json()
+        console.log("[v0] Found existing profile:", profile)
         setUserProfile(profile)
       } else {
-        setUserProfile({ id: address, connectedWallets: [address], createdAt: new Date().toISOString() })
+        console.log("[v0] No existing profile found, creating new profile")
+        const newProfile = {
+          id: address,
+          connectedWallets: [address],
+          createdAt: new Date().toISOString(),
+          email: null,
+          shippingAddress: null,
+        }
+
+        // Save the new profile to Firebase
+        const createRes = await fetch("/api/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newProfile),
+        })
+
+        if (createRes.ok) {
+          console.log("[v0] Successfully created new user profile")
+          setUserProfile(newProfile)
+          toast({
+            title: "Welcome!",
+            description: "Your profile has been created successfully",
+          })
+        } else {
+          console.error("[v0] Failed to create user profile")
+          setUserProfile(newProfile) // Set locally even if save failed
+        }
       }
     } catch (err) {
       console.error("[v0] profile error", err)
+      const fallbackProfile = {
+        id: address,
+        connectedWallets: [address],
+        createdAt: new Date().toISOString(),
+      }
+      setUserProfile(fallbackProfile)
     }
   }
 
