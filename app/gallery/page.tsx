@@ -349,6 +349,12 @@ export default function GalleryPage() {
   }
 
   useEffect(() => {
+    if (selectedNFT && selectedGesture && activeTab === "gesture") {
+      generateComposite()
+    }
+  }, [selectedNFT, selectedGesture, activeTab])
+
+  useEffect(() => {
     if (activeTab === "collections") {
       setSearchedNFT(null)
       setNfts([])
@@ -382,7 +388,7 @@ export default function GalleryPage() {
 
       <div className="container mx-auto px-4 py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-900 border border-gray-800 mb-8">
+          <TabsList className="grid w-full grid-cols-4 bg-gray-900 border border-gray-800 mb-8">
             <TabsTrigger
               value="collections"
               className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
@@ -398,6 +404,13 @@ export default function GalleryPage() {
             <TabsTrigger value="gesture" className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black">
               <Wand2 className="w-4 h-4 mr-2" />
               Gesture Studio
+            </TabsTrigger>
+            <TabsTrigger
+              value="art-gallery"
+              className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            >
+              <Palette className="w-4 h-4 mr-2" />
+              Art Gallery
             </TabsTrigger>
           </TabsList>
 
@@ -830,26 +843,6 @@ export default function GalleryPage() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Generate Button */}
-                  <Button
-                    onClick={generateComposite}
-                    disabled={!selectedNFT || !selectedGesture || isGenerating}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
-                    size="lg"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Palette className="w-4 h-4 mr-2" />
-                        Generate Composite
-                      </>
-                    )}
-                  </Button>
                 </div>
 
                 {/* Preview & Actions */}
@@ -886,13 +879,139 @@ export default function GalleryPage() {
                       ) : (
                         <div className="aspect-square rounded-lg bg-gray-800 flex items-center justify-center">
                           <div className="text-center text-gray-400">
-                            <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>Select an NFT and gesture to generate preview</p>
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-purple-400" />
+                                <p>Generating preview...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p>Select an NFT and gesture to generate preview</p>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="art-gallery">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                <span className="bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent">
+                  Art Gallery Studio
+                </span>
+              </h2>
+              <p className="text-gray-400 mb-6">Create custom phone backgrounds and Twitter banners with your NFTs</p>
+
+              {!isConnected && <ConnectWidget />}
+            </div>
+
+            {isConnected && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Template Selection */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-blue-400">1. Choose Template</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Card className="cursor-pointer bg-gray-900 border-gray-800 hover:border-blue-500 transition-all duration-300">
+                        <CardContent className="p-4 text-center">
+                          <div className="aspect-[9/16] bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg mb-3 flex items-center justify-center border-2 border-blue-500/30">
+                            <div className="text-blue-400">📱</div>
+                          </div>
+                          <h4 className="font-bold text-blue-400">Phone Background</h4>
+                          <p className="text-xs text-gray-400">1080x1920</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="cursor-pointer bg-gray-900 border-gray-800 hover:border-cyan-500 transition-all duration-300">
+                        <CardContent className="p-4 text-center">
+                          <div className="aspect-[3/1] bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg mb-3 flex items-center justify-center border-2 border-cyan-500/30">
+                            <div className="text-cyan-400">🐦</div>
+                          </div>
+                          <h4 className="font-bold text-cyan-400">Twitter Banner</h4>
+                          <p className="text-xs text-gray-400">1500x500</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* NFT Selection for Art Gallery */}
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-purple-400">2. Select Your NFT</h3>
+                    {userNFTs.length === 0 ? (
+                      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                        <p className="text-gray-400">No NFTs found in your wallet</p>
+                        <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-64 overflow-y-auto">
+                        {userNFTs.slice(0, 6).map((nft) => (
+                          <Card
+                            key={`art-${nft.tokenAddress}-${nft.tokenId}`}
+                            className="cursor-pointer bg-gray-900 border-gray-800 hover:border-purple-500 transition-all duration-300"
+                          >
+                            <CardContent className="p-3">
+                              <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                                <img
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                                />
+                              </div>
+                              <h4 className="font-bold text-xs truncate">{nft.name}</h4>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Preview & Actions */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-cyan-400">3. Preview & Download</h3>
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                      <div className="aspect-[3/1] rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/20 flex items-center justify-center mb-4">
+                        <div className="text-center text-gray-400">
+                          <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>Select template and NFT to generate preview</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" disabled>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                        <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" disabled>
+                          <Share className="w-4 h-4 mr-2" />
+                          Share
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coming Soon Notice */}
+                  <Card className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/30">
+                    <CardContent className="p-6 text-center">
+                      <h4 className="text-lg font-bold text-blue-400 mb-2">🎨 Coming Soon</h4>
+                      <p className="text-gray-300 text-sm">
+                        Full Art Gallery functionality with custom templates, layouts, and social media formats will be
+                        available soon!
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             )}

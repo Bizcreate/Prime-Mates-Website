@@ -33,9 +33,9 @@ export default function ConnectWidget() {
         className: "bg-gray-800 text-white border-gray-700 hover:bg-gray-700 font-semibold px-4 py-2 rounded-lg",
       }}
       theme="dark"
-      showAllWallets={true}
+      showAllWallets={false}
       connectModal={{
-        size: "wide",
+        size: "compact",
         showThirdwebBranding: false,
       }}
     />
