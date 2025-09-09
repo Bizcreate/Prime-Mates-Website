@@ -1,5 +1,4 @@
 import { doc, setDoc, getDoc } from "firebase/firestore"
-import { toast } from "react-hot-toast"
 import { db } from "./firebase"
 
 export const calculateStakingPoints = (stakeData: any) => {
@@ -12,8 +11,10 @@ export const calculateStakingPoints = (stakeData: any) => {
 
   // Collection multipliers
   const collectionMultipliers: { [key: string]: number } = {
-    "0x123...": 1.5, // PMBC contract - replace with actual address
-    "0x456...": 1.2, // PTTB contract - replace with actual address
+    "0x12662b6a2a424a0090b7d09401fb775a9b968898": 1.5, // PMBC contract
+    "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75": 1.2, // PTTB contract
+    "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8": 1.3, // Halloween contract
+    "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf": 1.4, // Christmas contract
   }
 
   const multiplier = collectionMultipliers[stakeData.nftContract] || 1.0
@@ -71,11 +72,9 @@ export const stakeNFT = async (userId: string, stakeData: any) => {
 
     await setDoc(stakingRef, { stakes: currentStakes }, { merge: true })
     console.log("[v0] NFT staked successfully in Firebase")
-    toast.success("NFT staked successfully!")
     return true
   } catch (error) {
     console.error("Error staking NFT:", error)
-    toast.error("Failed to stake NFT. Please try again.")
     return false
   }
 }
@@ -87,7 +86,7 @@ export const unstakeNFT = async (userId: string, nftId: string) => {
     const stakingDoc = await getDoc(stakingRef)
 
     if (!stakingDoc.exists()) {
-      toast.error("No staking record found")
+      console.error("No staking record found")
       return false
     }
 
@@ -95,7 +94,7 @@ export const unstakeNFT = async (userId: string, nftId: string) => {
     const stakeToRemove = currentStakes.find((stake: any) => stake.nftId === nftId)
 
     if (!stakeToRemove) {
-      toast.error("NFT not found in staking")
+      console.error("NFT not found in staking")
       return false
     }
 
@@ -107,11 +106,9 @@ export const unstakeNFT = async (userId: string, nftId: string) => {
 
     await setDoc(stakingRef, { stakes: updatedStakes }, { merge: true })
     console.log("[v0] NFT unstaked successfully, points awarded:", finalPoints)
-    toast.success(`NFT unstaked successfully! Earned ${finalPoints} points!`)
     return true
   } catch (error) {
     console.error("Error unstaking NFT:", error)
-    toast.error("Failed to unstake NFT. Please try again.")
     return false
   }
 }
@@ -144,7 +141,6 @@ export const getStakedNFTs = async (userId: string) => {
     return stakingDoc.data().stakes || []
   } catch (error) {
     console.error("Error fetching staked NFTs:", error)
-    toast.error("Failed to fetch staked NFTs")
     return []
   }
 }

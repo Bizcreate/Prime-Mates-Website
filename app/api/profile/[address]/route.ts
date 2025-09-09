@@ -1,20 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/packages/prime-shared/firebase/client"
-import { doc, getDoc } from "firebase/firestore"
+import { getUserByWallet, toUnifiedProfile } from "@/lib/firebase-utils"
 
-export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: { address: string } }) {
   try {
     const { address } = params
-
-    const profileDoc = await getDoc(doc(db, "profiles", address))
-
-    if (profileDoc.exists()) {
-      return NextResponse.json(profileDoc.data())
-    } else {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    const user = await getUserByWallet(address)
+    if (!user) {
+      return NextResponse.json(
+        { code: "WALLET_NOT_LINKED", message: "No profile found for this wallet" },
+        { status: 404 },
+      )
     }
-  } catch (error) {
-    console.error("Error fetching profile:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(toUnifiedProfile(user))
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 })
   }
 }

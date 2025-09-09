@@ -127,3 +127,26 @@ export const getStakingData = async (walletAddress: string) => {
     throw error
   }
 }
+
+export const toUnifiedProfile = (user: any) => {
+  if (!user) return null
+
+  return {
+    id: user.id,
+    walletAddress: user.walletAddress,
+    email: user.email || null,
+    username: user.username || null,
+    displayName: user.displayName || user.username || "Anonymous",
+    avatar: user.avatar || null,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    // Shipping details
+    shippingAddress: user.shippingAddress || null,
+    // Prime Arcade stats
+    totalPoints: user.totalPoints || 0,
+    stakedNFTs: user.stakedNFTs || 0,
+    // Profile linking
+    linkedWallets: user.linkedWallets || [],
+    isPrimary: user.isPrimary || false,
+  }
+}
