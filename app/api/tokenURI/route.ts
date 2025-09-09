@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getContract } from "thirdweb"
-import { client } from "@/packages/prime-shared/thirdweb/client"
+import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client"
 import { ethereum, polygon } from "thirdweb/chains"
 import { readContract } from "thirdweb"
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     const contract = getContract({
-      client,
+      client: thirdwebClient,
       chain: chain === "ethereum" ? ethereum : polygon,
       address: contractAddress,
     })
