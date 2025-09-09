@@ -40,6 +40,8 @@ interface StakingData {
 // --- Constants --------------------------------------------------------------
 const PMBC_ADDR = "0x12662b6a2a424a0090b7d09401fb775a9b968898" // Ethereum
 const PTTB_ADDR = "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75" // Polygon
+const HALLOWEEN_ADDR = "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8" // Ethereum
+const CHRISTMAS_ADDR = "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf" // Polygon
 
 const IPFS_GATEWAYS = ["https://ipfs.io/ipfs/", "https://cloudflare-ipfs.com/ipfs/", "https://nftstorage.link/ipfs/"]
 
@@ -88,6 +90,64 @@ export function MemberDashboard() {
 
     try {
       const owned: NFTData[] = []
+
+      // Fetch Prime Halloween NFTs from Ethereum
+      try {
+        console.log("[v0] Fetching Prime Halloween NFTs from Ethereum...")
+        const halloweenNFTs = await getOwnedNFTs({
+          contract: {
+            client: thirdwebClient,
+            chain: ethereum,
+            address: HALLOWEEN_ADDR,
+          },
+          owner: address,
+          includeMetadata: true,
+        })
+
+        console.log("[v0] Found Prime Halloween NFTs:", halloweenNFTs.length)
+
+        for (const nft of halloweenNFTs) {
+          owned.push({
+            tokenId: nft.id.toString(),
+            name: nft.metadata?.name || `Prime Halloween #${nft.id.toString()}`,
+            image: pickImage(nft.metadata) ?? "/prime-mates-nft.jpg",
+            collection: "Prime Halloween Board Club",
+            chain: "ethereum",
+            tokenAddress: HALLOWEEN_ADDR,
+          })
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching Prime Halloween NFTs:", error)
+      }
+
+      // Fetch Prime Christmas NFTs from Polygon
+      try {
+        console.log("[v0] Fetching Prime Christmas NFTs from Polygon...")
+        const christmasNFTs = await getOwnedNFTs({
+          contract: {
+            client: thirdwebClient,
+            chain: polygon,
+            address: CHRISTMAS_ADDR,
+          },
+          owner: address,
+          includeMetadata: true,
+        })
+
+        console.log("[v0] Found Prime Christmas NFTs:", christmasNFTs.length)
+
+        for (const nft of christmasNFTs) {
+          owned.push({
+            tokenId: nft.id.toString(),
+            name: nft.metadata?.name || `Prime Christmas #${nft.id.toString()}`,
+            image: pickImage(nft.metadata) ?? "/prime-mates-nft.jpg",
+            collection: "Prime Mates Christmas Club",
+            chain: "polygon",
+            tokenAddress: CHRISTMAS_ADDR,
+          })
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching Prime Christmas NFTs:", error)
+      }
 
       // Fetch PMBC NFTs from Ethereum
       try {
