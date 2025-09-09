@@ -324,10 +324,16 @@ export function MemberDashboard() {
     if (address) {
       console.log(`[v0] Wallet connected: ${address}`)
       loadUserProfile()
-      loadUserNFTs()
       loadStakingData()
     }
   }, [address])
+
+  useEffect(() => {
+    if (address && (pmbcBalance !== undefined || pttbBalance !== undefined)) {
+      console.log(`[v0] Balances loaded - PMBC: ${pmbcBalance}, PTTB: ${pttbBalance}`)
+      loadUserNFTs()
+    }
+  }, [address, pmbcBalance, pttbBalance])
 
   const totalNFTs = (pmbcBalance ? Number(pmbcBalance) : 0) + (pttbBalance ? Number(pttbBalance) : 0)
 
