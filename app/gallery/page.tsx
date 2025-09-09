@@ -133,12 +133,20 @@ export default function GalleryPage() {
 
   // Gesture overlays
   const gestureOverlays = [
-    { id: "peace", name: "Peace Sign", image: "/gestures/peace.png" },
-    { id: "thumbs-up", name: "Thumbs Up", image: "/gestures/thumbs-up.png" },
-    { id: "rock-on", name: "Rock On", image: "/gestures/rock-on.png" },
-    { id: "wave", name: "Wave", image: "/gestures/wave.png" },
-    { id: "point", name: "Point", image: "/gestures/point.png" },
-    { id: "ok", name: "OK Sign", image: "/gestures/ok.png" },
+    { id: "gm-coffee", name: "GM Coffee", image: "/gestures/gm-coffee.png" },
+    { id: "gm-coffee1", name: "GM Coffee Alt", image: "/gestures/gm-coffee1.png" },
+    { id: "gold-star", name: "Gold Star", image: "/gestures/gold-star.png" },
+    { id: "golden-crown", name: "Golden Crown", image: "/gestures/golden-crown.png" },
+    { id: "lightning", name: "Lightning", image: "/gestures/lightning.png" },
+    { id: "love-heart", name: "Love Heart", image: "/gestures/love-heart.png" },
+    { id: "mog-goggles", name: "Mog Goggles", image: "/gestures/Mog Goggles.png" },
+    { id: "pmbc-fistbump", name: "PMBC Fistbump", image: "/gestures/PMBC Fistbump.png" },
+    { id: "shaka", name: "Shaka", image: "/gestures/Shaka.png" },
+    { id: "skateboard", name: "Skateboard", image: "/gestures/Skateboard.png" },
+    { id: "surfboard", name: "Surfboard", image: "/gestures/Surfboard.png" },
+    { id: "taco", name: "Taco", image: "/gestures/Taco.png" },
+    { id: "long-board", name: "Long Board", image: "/gestures/Long Board.png" },
+    { id: "1-50-board", name: "1-50 Board", image: "/gestures/1-50 Board.png" },
   ]
 
   async function loadUserNFTs() {
@@ -337,8 +345,7 @@ export default function GalleryPage() {
   }
 
   function openGestureBuilder(nft: NFTData, collectionName: string) {
-    const slug = collectionName.toLowerCase().replace(/\s+/g, "-")
-    window.location.href = `/gesture/${slug}/${nft.tokenId}`
+    console.log("Gesture builder functionality is now available in the Gesture Studio tab")
   }
 
   useEffect(() => {
