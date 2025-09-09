@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, ExternalLink, Loader2, Palette, RefreshCw } from "lucide-react"
+import { Search, ExternalLink, Loader2, RefreshCw, Download, Share, Palette, Wand2 } from "lucide-react"
 import { useActiveAccount } from "thirdweb/react"
 import { Insight } from "thirdweb"
 import { ethereum, polygon } from "thirdweb/chains"
@@ -120,10 +120,26 @@ export default function GalleryPage() {
   const [userNFTs, setUserNFTs] = useState<NFTData[]>([])
   const [walletLoading, setWalletLoading] = useState(false)
 
+  // Gesture Studio state
+  const [selectedNFT, setSelectedNFT] = useState<NFTData | null>(null)
+  const [selectedGesture, setSelectedGesture] = useState<string>("")
+  const [compositeImage, setCompositeImage] = useState<string>("")
+  const [isGenerating, setIsGenerating] = useState(false)
+
   const collectionByAddr = useMemo(
     () => Object.fromEntries(collections.map((c) => [c.address.toLowerCase(), { name: c.name, chainId: c.chainId }])),
     [],
   )
+
+  // Gesture overlays
+  const gestureOverlays = [
+    { id: "peace", name: "Peace Sign", image: "/gestures/peace.png" },
+    { id: "thumbs-up", name: "Thumbs Up", image: "/gestures/thumbs-up.png" },
+    { id: "rock-on", name: "Rock On", image: "/gestures/rock-on.png" },
+    { id: "wave", name: "Wave", image: "/gestures/wave.png" },
+    { id: "point", name: "Point", image: "/gestures/point.png" },
+    { id: "ok", name: "OK Sign", image: "/gestures/ok.png" },
+  ]
 
   async function loadUserNFTs() {
     if (!isConnected || !walletAddress) {
@@ -253,6 +269,68 @@ export default function GalleryPage() {
     }
   }
 
+  // Gesture composition function
+  async function generateComposite() {
+    if (!selectedNFT || !selectedGesture) return
+
+    setIsGenerating(true)
+    try {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      canvas.width = 512
+      canvas.height = 512
+
+      // Load NFT image
+      const nftImg = new Image()
+      nftImg.crossOrigin = "anonymous"
+      await new Promise((resolve, reject) => {
+        nftImg.onload = resolve
+        nftImg.onerror = reject
+        nftImg.src = selectedNFT.image || "/prime-mates-nft.jpg"
+      })
+
+      // Load gesture overlay
+      const gestureImg = new Image()
+      gestureImg.crossOrigin = "anonymous"
+      await new Promise((resolve, reject) => {
+        gestureImg.onload = resolve
+        gestureImg.onerror = reject
+        gestureImg.src = gestureOverlays.find((g) => g.id === selectedGesture)?.image || ""
+      })
+
+      // Draw NFT as background
+      ctx.drawImage(nftImg, 0, 0, canvas.width, canvas.height)
+
+      // Draw gesture overlay
+      ctx.drawImage(gestureImg, 0, 0, canvas.width, canvas.height)
+
+      setCompositeImage(canvas.toDataURL("image/png"))
+    } catch (error) {
+      console.error("Error generating composite:", error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  function downloadComposite() {
+    if (!compositeImage) return
+
+    const link = document.createElement("a")
+    link.download = `${selectedNFT?.name || "nft"}-gesture.png`
+    link.href = compositeImage
+    link.click()
+  }
+
+  function shareToTwitter() {
+    if (!compositeImage || !selectedNFT) return
+
+    const text = `Check out my ${selectedNFT.name} with gesture overlay! #PrimeMates #NFT`
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`
+    window.open(url, "_blank")
+  }
+
   function isNFTOwned(nft: NFTData): boolean {
     if (!walletAddress || !nft.owner) return false
     return walletAddress.toLowerCase() === nft.owner.toLowerCase()
@@ -297,7 +375,7 @@ export default function GalleryPage() {
 
       <div className="container mx-auto px-4 py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-900 border border-gray-800 mb-8">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-900 border border-gray-800 mb-8">
             <TabsTrigger
               value="collections"
               className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
@@ -310,8 +388,13 @@ export default function GalleryPage() {
             >
               My Collection
             </TabsTrigger>
+            <TabsTrigger value="gesture" className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black">
+              <Wand2 className="w-4 h-4 mr-2" />
+              Gesture Studio
+            </TabsTrigger>
           </TabsList>
 
+          {/* Existing TabsContent for collections */}
           <TabsContent value="collections">
             {/* Controls */}
             <div className="flex flex-col lg:flex-row gap-6 mb-12">
@@ -491,22 +574,12 @@ export default function GalleryPage() {
                             </div>
                           ) : null}
                           <div className="flex gap-2">
-                            {isNFTOwned(nft) && (
-                              <Button
-                                onClick={() => openGestureBuilder(nft, selectedCollection.name)}
-                                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
-                                size="sm"
-                              >
-                                <Palette className="w-4 h-4 mr-2" />
-                                Add Gesture
-                              </Button>
-                            )}
                             {nft.tokenAddress && nft.chainId && (
                               <a
                                 href={openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className={isNFTOwned(nft) ? "flex-1" : "w-full"}
+                                className="w-full"
                               >
                                 <Button
                                   variant="outline"
@@ -514,7 +587,7 @@ export default function GalleryPage() {
                                   className="w-full border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black bg-transparent"
                                 >
                                   <ExternalLink className="w-4 h-4 mr-2" />
-                                  View Details
+                                  View on OpenSea
                                 </Button>
                               </a>
                             )}
@@ -542,6 +615,7 @@ export default function GalleryPage() {
             </div>
           </TabsContent>
 
+          {/* Existing TabsContent for my-collection */}
           <TabsContent value="my-collection">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold mb-4">
@@ -556,7 +630,7 @@ export default function GalleryPage() {
               {!isConnected ? (
                 <ConnectWidget />
               ) : (
-                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8">
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
                   <p className="text-sm text-gray-400 mb-2">Connected Wallet</p>
                   <p className="font-mono text-yellow-500">{walletAddress}</p>
                   <div className="flex items-center justify-center gap-3 mt-3">
@@ -627,31 +701,12 @@ export default function GalleryPage() {
                                 )}
                               </div>
                               <div className="flex gap-2">
-                                <Button
-                                  onClick={() =>
-                                    openGestureBuilder(
-                                      {
-                                        tokenId: nft.tokenId,
-                                        name: nft.name,
-                                        image: nft.image,
-                                        description: nft.description,
-                                        owner: walletAddress,
-                                      },
-                                      collection.name,
-                                    )
-                                  }
-                                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
-                                  size="sm"
-                                >
-                                  <Palette className="w-4 h-4 mr-2" />
-                                  Add Gesture
-                                </Button>
                                 {nft.tokenAddress && nft.chainId && (
                                   <a
                                     href={openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId)}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex-1"
+                                    className="w-full"
                                   >
                                     <Button
                                       variant="outline"
@@ -680,6 +735,160 @@ export default function GalleryPage() {
                 </p>
               </div>
             ) : null}
+          </TabsContent>
+
+          <TabsContent value="gesture">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                  Gesture Studio
+                </span>
+              </h2>
+              <p className="text-gray-400 mb-6">
+                Select your NFT and add gesture overlays to create unique compositions
+              </p>
+
+              {!isConnected && <ConnectWidget />}
+            </div>
+
+            {isConnected && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* NFT Selection */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-yellow-400">1. Select Your NFT</h3>
+                    {userNFTs.length === 0 ? (
+                      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                        <p className="text-gray-400">No NFTs found in your wallet</p>
+                        <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                        {userNFTs.map((nft) => (
+                          <Card
+                            key={`${nft.tokenAddress}-${nft.tokenId}`}
+                            className={`cursor-pointer transition-all duration-300 ${
+                              selectedNFT?.tokenId === nft.tokenId
+                                ? "border-yellow-500 bg-yellow-500/10"
+                                : "bg-gray-900 border-gray-800 hover:border-yellow-500"
+                            }`}
+                            onClick={() => setSelectedNFT(nft)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                                <img
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                                />
+                              </div>
+                              <h4 className="font-bold text-sm truncate">{nft.name}</h4>
+                              <p className="text-xs text-gray-400">#{nft.tokenId}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Gesture Selection */}
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-purple-400">2. Choose Gesture Overlay</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {gestureOverlays.map((gesture) => (
+                        <Card
+                          key={gesture.id}
+                          className={`cursor-pointer transition-all duration-300 ${
+                            selectedGesture === gesture.id
+                              ? "border-purple-500 bg-purple-500/10"
+                              : "bg-gray-900 border-gray-800 hover:border-purple-500"
+                          }`}
+                          onClick={() => setSelectedGesture(gesture.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                              <img
+                                src={gesture.image || "/placeholder.svg"}
+                                alt={gesture.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <h4 className="font-bold text-sm text-center">{gesture.name}</h4>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button
+                    onClick={generateComposite}
+                    disabled={!selectedNFT || !selectedGesture || isGenerating}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Palette className="w-4 h-4 mr-2" />
+                        Generate Composite
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Preview & Actions */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-pink-400">3. Preview & Download</h3>
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                      {compositeImage ? (
+                        <div className="space-y-4">
+                          <div className="aspect-square rounded-lg overflow-hidden bg-gray-800 mx-auto max-w-sm">
+                            <img
+                              src={compositeImage || "/placeholder.svg"}
+                              alt="Composite NFT with gesture"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex gap-3">
+                            <Button
+                              onClick={downloadComposite}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                            <Button
+                              onClick={shareToTwitter}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Share className="w-4 h-4 mr-2" />
+                              Share
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="aspect-square rounded-lg bg-gray-800 flex items-center justify-center">
+                          <div className="text-center text-gray-400">
+                            <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>Select an NFT and gesture to generate preview</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
