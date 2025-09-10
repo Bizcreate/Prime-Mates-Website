@@ -329,66 +329,31 @@ export function MemberDashboard() {
 
     try {
       if (currentFirebaseUser) {
-        console.log("[v0] Firebase user signed in, checking for Prime Arcade account...")
+        console.log("[v0] Firebase user signed in, loading profile by UID...")
 
-        // Try to find existing Prime Arcade account by email
-        const primeArcadeRes = await fetch(`/api/prime-arcade-profile/${currentFirebaseUser.email}`)
-        if (primeArcadeRes.ok) {
-          const primeArcadeData = await primeArcadeRes.json()
-          console.log("[v0] Found existing Prime Arcade account:", primeArcadeData)
+        // Load profile by Firebase UID
+        const profileRes = await fetch(`/api/profile/uid/${currentFirebaseUser.uid}`)
+        if (profileRes.ok) {
+          const profile = await profileRes.json()
+          console.log("[v0] Found Firebase profile:", profile)
 
-          // Migrate Prime Arcade data to new profile structure
-          const migratedProfile = {
-            uid: currentFirebaseUser.uid,
-            id: currentFirebaseUser.uid,
-            name: primeArcadeData.name || currentFirebaseUser.displayName,
-            email: currentFirebaseUser.email,
-            connectedWallets: primeArcadeData.connectedWallets || [address],
-            primaryWallet: address,
-            createdAt: primeArcadeData.createdAt || new Date().toISOString(),
-            shippingAddress: primeArcadeData.shippingAddress,
-            memberTier: primeArcadeData.memberTier || "Holder",
-            totalNFTs: primeArcadeData.totalNFTs || 0,
-            stakingPoints: primeArcadeData.stakingPoints || 0,
-            // Prime Arcade specific data
-            primeArcadeId: primeArcadeData.id,
-            balance: primeArcadeData.balance || 0,
-            energy: primeArcadeData.energy || 0,
-            shakaBalance: primeArcadeData.shakaBalance || 0,
-            levelProgress: primeArcadeData.levelProgress || 0,
-            achievements: primeArcadeData.achievements || [],
-            twitterProfile: primeArcadeData.twitterProfile,
+          // Add current wallet if not already connected
+          if (!profile.connectedWallets.includes(address)) {
+            await addWalletToProfile(address, profile)
+          } else {
+            setUserProfile(profile)
+            loadNFTs()
+            loadStakingData()
           }
-
-          // Save migrated profile to Firestore
-          const saveRes = await fetch("/api/profile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(migratedProfile),
-          })
-
-          if (saveRes.ok) {
-            // Create wallet link
-            await fetch("/api/wallet-link", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                walletAddress: address,
-                userId: currentFirebaseUser.uid,
-              }),
-            })
-
-            setUserProfile(migratedProfile)
-            toast({
-              title: "Account Linked Successfully!",
-              description: "Your Prime Arcade account has been linked to this wallet.",
-            })
-            return
-          }
+          return
+        } else {
+          console.log("[v0] No Firebase profile found, creating new profile...")
+          setShowProfileCreation(true)
+          return
         }
       }
 
-      // First check if wallet is already linked to a user
+      // Check if wallet is already linked to a Firebase user
       const walletLinkRes = await fetch(`/api/wallet-link/${address}`)
       if (walletLinkRes.ok) {
         const linkData = await walletLinkRes.json()
@@ -400,39 +365,14 @@ export function MemberDashboard() {
           const profile = await profileRes.json()
           console.log("[v0] Found linked profile:", profile)
           setUserProfile(profile)
+          loadNFTs()
+          loadStakingData()
           return
         }
       }
 
-      // Check if user is already signed in to Firebase
-      if (currentFirebaseUser) {
-        console.log("[v0] User already signed in to Firebase, linking wallet...")
-
-        // Load existing profile and link wallet
-        const profileRes = await fetch(`/api/profile/uid/${currentFirebaseUser.uid}`)
-        if (profileRes.ok) {
-          const profile = await profileRes.json()
-
-          // Add wallet if not already connected
-          if (!profile.connectedWallets.includes(address)) {
-            await addWalletToProfile(address, profile)
-          } else {
-            setUserProfile(profile)
-          }
-          return
-        }
-      }
-
-      // Check for legacy wallet-based profile
-      const res = await fetch(`/api/profile/${address}`)
-      if (res.ok) {
-        const profile = await res.json()
-        console.log("[v0] Found existing wallet-based profile:", profile)
-        setUserProfile(profile)
-      } else {
-        console.log("[v0] No existing profile found, showing auth options")
-        setShowAuthModal(true)
-      }
+      console.log("[v0] No existing profile found, showing auth options")
+      setShowAuthModal(true)
     } catch (err) {
       console.error("[v0] profile error", err)
       setShowAuthModal(true)
@@ -502,7 +442,6 @@ export function MemberDashboard() {
       title: "Welcome to Prime Mates!",
       description: "Your profile has been created successfully. Loading your NFTs...",
     })
-    // Load NFTs after profile creation
     loadNFTs()
     loadStakingData()
   }
@@ -515,7 +454,6 @@ export function MemberDashboard() {
       title: "Welcome back!",
       description: "Your wallet has been linked to your account.",
     })
-    // Load NFTs after authentication
     loadNFTs()
     loadStakingData()
   }
@@ -525,6 +463,13 @@ export function MemberDashboard() {
       loadUserProfile()
     }
   }, [address, currentFirebaseUser])
+
+  useEffect(() => {
+    if (userProfile && address) {
+      loadNFTs()
+      loadStakingData()
+    }
+  }, [userProfile, address])
 
   const hasWallet = Boolean(address)
 
