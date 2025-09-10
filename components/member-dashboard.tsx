@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Wallet, Star, Package, Plus, User, RefreshCw } from "lucide-react"
+import { Wallet, Star, Package, User, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import StatsCard from "./StatsCard"
 import { ProfileCreationModal } from "./ProfileCreationModal"
+import { useRouter } from "next/navigation"
 
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
 import { ethereum, polygon } from "thirdweb/chains"
@@ -84,6 +85,7 @@ export function MemberDashboard() {
   const activeAccount = useActiveAccount()
   const address = activeAccount?.address
   const { toast } = useToast()
+  const router = useRouter()
 
   const [userNFTs, setUserNFTs] = useState<NFTData[]>([])
   const [loading, setLoading] = useState(false)
@@ -417,7 +419,7 @@ export function MemberDashboard() {
 
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
             <Button
-              onClick={() => setShowProfileModal(true)}
+              onClick={() => router.push("/profile")}
               variant="outline"
               className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
             >
@@ -531,85 +533,6 @@ export function MemberDashboard() {
             )}
           </CardContent>
         </Card>
-
-        {/* Profile Modal */}
-        {showProfileModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="bg-gray-900 border-yellow-400/30 max-w-md w-full">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white">Profile Settings</h3>
-                  <Button onClick={() => setShowProfileModal(false)} variant="ghost" size="sm">
-                    ×
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="text-center mb-4">
-                    <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <User className="h-8 w-8 text-black" />
-                    </div>
-                    <h4 className="text-lg font-bold text-white">{userProfile.name}</h4>
-                    <p className="text-sm text-gray-400">{userProfile.email}</p>
-                    <Badge className="mt-2 bg-yellow-400 text-black">{userProfile.memberTier || "Bronze"} Member</Badge>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">Connected Wallets</p>
-                    {userProfile?.connectedWallets.map((wallet, index) => (
-                      <div
-                        key={wallet}
-                        className="flex items-center justify-between p-3 bg-black rounded border border-gray-700 mb-2"
-                      >
-                        <span className="text-sm text-white font-mono">
-                          {wallet.slice(0, 8)}...{wallet.slice(-6)}
-                        </span>
-                        {wallet === userProfile.primaryWallet && (
-                          <Badge className="bg-yellow-400 text-black">Primary</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {userProfile.shippingAddress && (
-                    <div>
-                      <p className="text-sm text-gray-400 mb-2">Shipping Address</p>
-                      <div className="p-3 bg-black rounded border border-gray-700 text-sm text-white">
-                        <p>{userProfile.shippingAddress.street}</p>
-                        <p>
-                          {userProfile.shippingAddress.city}, {userProfile.shippingAddress.state}{" "}
-                          {userProfile.shippingAddress.zipCode}
-                        </p>
-                        <p>{userProfile.shippingAddress.country}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={linkAdditionalWallet}
-                    className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Link Another Wallet
-                  </Button>
-
-                  <div className="pt-4 border-t border-gray-700">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <p className="text-2xl font-bold text-green-400">{stakingData.stakedNFTs}</p>
-                        <p className="text-xs text-gray-400">Staked NFTs</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-purple-400">{stakingData.totalPoints}</p>
-                        <p className="text-xs text-gray-400">Total Points</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </div>
   )
