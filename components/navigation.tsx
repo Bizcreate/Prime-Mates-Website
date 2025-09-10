@@ -16,7 +16,7 @@ export function Navigation() {
     { name: "Home", href: "/" },
     { name: "NFTs", href: "/nfts" },
     { name: "Gallery", href: "/gallery" },
-    { name: "Mint", href: "/mint" },
+    { name: "Mint PMBC", href: "/mint" },
     { name: "Mint PTTB", href: "/mint-pttb" },
     { name: "Dashboard", href: "/dashboard" },
     { name: "Community", href: "/community" },
