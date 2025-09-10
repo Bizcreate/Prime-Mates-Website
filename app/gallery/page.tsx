@@ -110,6 +110,8 @@ export default function GalleryPage() {
   const walletAddress = account?.address
   const isConnected = !!account
 
+  console.log("[v0] Gallery - Wallet connection status:", { isConnected, walletAddress, account })
+
   const [activeTab, setActiveTab] = useState("collections")
 
   // Collections tab state
@@ -201,11 +203,21 @@ export default function GalleryPage() {
   }
 
   async function loadCollectionNFTs(reset = false) {
+    console.log("[v0] loadCollectionNFTs called:", { reset, selectedCollection: selectedCollection.name, page })
+
     setLoading(true)
     setError("")
     try {
       const usePage = reset ? 1 : page
       const chain = chainFromId(selectedCollection.chainId)
+
+      console.log("[v0] Attempting to load NFTs:", {
+        collection: selectedCollection.name,
+        address: selectedCollection.address,
+        chainId: selectedCollection.chainId,
+        page: usePage,
+        perPage,
+      })
 
       const list = await Insight.getContractNFTs({
         client: thirdwebClient,
@@ -215,6 +227,8 @@ export default function GalleryPage() {
         includeOwners: true,
         queryOptions: { resolve_metadata_links: "true", limit: perPage, page: usePage },
       })
+
+      console.log("[v0] NFTs loaded successfully:", { count: list.length, collection: selectedCollection.name })
 
       const mapped: NFTData[] = list.map((n) => ({
         tokenId: n.id.toString(),
@@ -232,26 +246,59 @@ export default function GalleryPage() {
       setHasMore(mapped.length === perPage)
       if (reset) setPage(1)
     } catch (err) {
-      console.error("[gallery] loadCollectionNFTs error", err)
-      if (err?.message?.includes("Unauthorized domain")) {
+      console.error("[v0] loadCollectionNFTs error:", err)
+
+      if (err?.message?.includes("Unauthorized domain") || err?.message?.includes("401")) {
+        console.log("[v0] Domain authorization error - showing placeholder NFTs")
         setError("Preview domain not authorized. Collections will be available after deployment.")
-        if (reset) {
-          const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
-            tokenId: (i + 1).toString(),
-            name: `${selectedCollection.name} #${i + 1}`,
-            image: "/prime-mates-nft.jpg",
-            description: `Preview of ${selectedCollection.name} collection`,
-            attributes: [],
-            owner: "",
+
+        // Always show placeholder NFTs when API fails
+        const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => {
+          const tokenId = i + 1
+          return {
+            tokenId: tokenId.toString(),
+            name: `${selectedCollection.name} #${tokenId}`,
+            image: selectedCollection.name.includes("Halloween")
+              ? "/prime-halloween-nft.jpg"
+              : selectedCollection.name.includes("Christmas")
+                ? "/prime-christmas-nft.jpg"
+                : selectedCollection.name.includes("Bone")
+                  ? "/prime-bone-nft.jpg"
+                  : "/prime-mates-nft.jpg",
+            description: `Preview of ${selectedCollection.name} collection - Token #${tokenId}`,
+            attributes: [
+              { trait_type: "Status", value: "Preview Mode" },
+              { trait_type: "Collection", value: selectedCollection.name },
+            ],
+            owner: "Preview Mode",
             collection: selectedCollection.name,
             tokenAddress: selectedCollection.address,
             chainId: selectedCollection.chainId,
-          }))
-          setNfts(placeholderNFTs)
-        }
+          }
+        })
+
+        console.log("[v0] Setting placeholder NFTs:", placeholderNFTs.length)
+        setNfts(placeholderNFTs)
+        setHasMore(false)
       } else {
-        setError("Failed to load NFTs. Please try again.")
-        if (reset) setNfts([])
+        console.log("[v0] Other error - showing generic placeholders")
+        setError("Failed to load NFTs. Showing preview mode.")
+
+        // Show generic placeholders for other errors too
+        const genericPlaceholders: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
+          tokenId: (i + 1).toString(),
+          name: `${selectedCollection.name} #${i + 1}`,
+          image: "/prime-mates-nft.jpg",
+          description: `${selectedCollection.name} NFT #${i + 1}`,
+          attributes: [{ trait_type: "Status", value: "Loading Error" }],
+          owner: "",
+          collection: selectedCollection.name,
+          tokenAddress: selectedCollection.address,
+          chainId: selectedCollection.chainId,
+        }))
+
+        setNfts(genericPlaceholders)
+        setHasMore(false)
       }
     } finally {
       setLoading(false)
@@ -379,17 +426,22 @@ export default function GalleryPage() {
   }, [selectedNFT, selectedGesture, activeTab])
 
   useEffect(() => {
+    console.log("[v0] Collections tab effect triggered:", { activeTab, selectedCollection: selectedCollection.name })
+
     if (activeTab === "collections") {
       setSearchedNFT(null)
       setNfts([])
       setPage(1)
       setError("")
       setHasMore(true)
+
+      console.log("[v0] Loading collection NFTs for:", selectedCollection.name)
       loadCollectionNFTs(true)
     }
   }, [selectedCollection, activeTab])
 
   useEffect(() => {
+    console.log("[v0] Wallet connection effect triggered:", { isConnected, walletAddress })
     loadUserNFTs()
   }, [isConnected, walletAddress])
 
