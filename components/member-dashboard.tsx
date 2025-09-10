@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast"
 import StatsCard from "./StatsCard"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebaseClient"
 
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
 import { ethereum, polygon } from "thirdweb/chains"
@@ -34,6 +36,8 @@ const ProfileCreationModal = dynamic(
     ),
   },
 )
+
+const AuthModal = dynamic(() => import("./AuthModal").then((mod) => ({ default: mod.AuthModal })), { ssr: false })
 
 // --- Types ------------------------------------------------------------------
 interface NFTData {
@@ -112,11 +116,21 @@ export function MemberDashboard() {
   const [showProfileCreation, setShowProfileCreation] = useState(false)
   const [stakingData, setStakingData] = useState<StakingData>({ stakedNFTs: 0, totalPoints: 0 })
   const [stakingLoading, setStakingLoading] = useState<string | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [currentFirebaseUser, setCurrentFirebaseUser] = useState<any>(null)
 
   const { data: ethBalance } = useWalletBalance({ client: thirdwebClient, chain: ethereum, address })
   const { data: polygonBalance } = useWalletBalance({ client: thirdwebClient, chain: polygon, address })
 
   const totalNFTs = userNFTs.length
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("[v0] Firebase Auth state changed:", user?.uid || "signed out")
+      setCurrentFirebaseUser(user)
+    })
+    return () => unsubscribe()
+  }, [])
 
   async function loadNFTs() {
     if (!address) return
@@ -307,46 +321,88 @@ export function MemberDashboard() {
     console.log("[v0] Loading user profile for address:", address)
 
     try {
+      // First check if wallet is already linked to a user
+      const walletLinkRes = await fetch(`/api/wallet-link/${address}`)
+      if (walletLinkRes.ok) {
+        const linkData = await walletLinkRes.json()
+        console.log("[v0] Found wallet link:", linkData)
+
+        // Load user profile by Firebase UID
+        const profileRes = await fetch(`/api/profile/uid/${linkData.userId}`)
+        if (profileRes.ok) {
+          const profile = await profileRes.json()
+          console.log("[v0] Found linked profile:", profile)
+          setUserProfile(profile)
+          return
+        }
+      }
+
+      // Check if user is already signed in to Firebase
+      if (currentFirebaseUser) {
+        console.log("[v0] User already signed in to Firebase, linking wallet...")
+
+        // Load existing profile and link wallet
+        const profileRes = await fetch(`/api/profile/uid/${currentFirebaseUser.uid}`)
+        if (profileRes.ok) {
+          const profile = await profileRes.json()
+
+          // Add wallet if not already connected
+          if (!profile.connectedWallets.includes(address)) {
+            await addWalletToProfile(address, profile)
+          } else {
+            setUserProfile(profile)
+          }
+          return
+        }
+      }
+
+      // Check for legacy wallet-based profile
       const res = await fetch(`/api/profile/${address}`)
       if (res.ok) {
         const profile = await res.json()
-        console.log("[v0] Found existing profile:", profile)
+        console.log("[v0] Found existing wallet-based profile:", profile)
         setUserProfile(profile)
       } else {
-        console.log("[v0] No existing profile found, showing profile creation modal")
-        setShowProfileCreation(true)
+        console.log("[v0] No existing profile found, showing auth options")
+        setShowAuthModal(true)
       }
     } catch (err) {
       console.error("[v0] profile error", err)
-      setShowProfileCreation(true)
+      setShowAuthModal(true)
     }
   }
 
-  const handleProfileCreated = (profile: UserProfile) => {
-    console.log("[v0] Profile created successfully:", profile)
-    setUserProfile(profile)
-    setShowProfileCreation(false)
-    toast({
-      title: "Welcome to Prime Mates!",
-      description: "Your profile has been created successfully. Loading your NFTs...",
-    })
-    // Load NFTs after profile creation
-    loadNFTs()
-    loadStakingData()
-  }
+  async function addWalletToProfile(walletAddress: string, existingProfile?: any) {
+    const profile = existingProfile || userProfile
+    if (!profile) return
 
-  async function addWalletToProfile(walletAddress: string) {
-    if (!userProfile) return
     try {
-      const updatedProfile = { ...userProfile, connectedWallets: [...userProfile.connectedWallets, walletAddress] }
+      const updatedProfile = {
+        ...profile,
+        connectedWallets: [...(profile.connectedWallets || []), walletAddress],
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Update in Firestore using UID
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedProfile),
       })
+
       if (res.ok) {
+        // Create wallet link
+        await fetch("/api/wallet-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            walletAddress,
+            userId: profile.uid,
+          }),
+        })
+
         setUserProfile(updatedProfile)
-        toast({ title: "Wallet Added", description: "Successfully linked wallet to your profile" })
+        toast({ title: "Wallet Linked", description: "Successfully linked wallet to your profile" })
       }
     } catch (err) {
       console.error("[v0] addWallet error", err)
@@ -371,22 +427,55 @@ export function MemberDashboard() {
     }
   }
 
+  const handleProfileCreated = (profile: UserProfile) => {
+    console.log("[v0] Profile created successfully:", profile)
+    setUserProfile(profile)
+    setShowProfileCreation(false)
+    toast({
+      title: "Welcome to Prime Mates!",
+      description: "Your profile has been created successfully. Loading your NFTs...",
+    })
+    // Load NFTs after profile creation
+    loadNFTs()
+    loadStakingData()
+  }
+
+  const handleAuthSuccess = (profile: any) => {
+    console.log("[v0] Auth successful:", profile)
+    setUserProfile(profile)
+    setShowAuthModal(false)
+    toast({
+      title: "Welcome back!",
+      description: "Your wallet has been linked to your account.",
+    })
+    // Load NFTs after authentication
+    loadNFTs()
+    loadStakingData()
+  }
+
   useEffect(() => {
     if (address) {
       loadUserProfile()
     }
-  }, [address])
-
-  useEffect(() => {
-    if (address && userProfile) {
-      loadStakingData()
-      loadNFTs()
-    }
-  }, [address, userProfile])
+  }, [address, currentFirebaseUser])
 
   const hasWallet = Boolean(address)
 
   const portfolioOverview = useMemo(() => `${totalNFTs} NFT${totalNFTs !== 1 ? "s" : ""} owned`, [totalNFTs])
+
+  if (showAuthModal && address) {
+    return (
+      <AuthModal
+        walletAddress={address}
+        onAuthSuccess={handleAuthSuccess}
+        onClose={() => setShowAuthModal(false)}
+        onCreateNew={() => {
+          setShowAuthModal(false)
+          setShowProfileCreation(true)
+        }}
+      />
+    )
+  }
 
   if (showProfileCreation && address) {
     return (
