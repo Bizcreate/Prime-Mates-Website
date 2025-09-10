@@ -136,19 +136,20 @@ export default function GalleryPage() {
   // Gesture overlays
   const gestureOverlays = [
     { id: "gm-coffee", name: "GM Coffee", image: "/gestures/gm-coffee.png" },
-    { id: "gm-coffee1", name: "GM Coffee Alt", image: "/gestures/gm-coffee1.png" },
-    { id: "gold-star", name: "Gold Star", image: "/gestures/gold-star.png" },
-    { id: "golden-crown", name: "Golden Crown", image: "/gestures/golden-crown.png" },
-    { id: "lightning", name: "Lightning", image: "/gestures/lightning.png" },
-    { id: "love-heart", name: "Love Heart", image: "/gestures/love-heart.png" },
-    { id: "mog-goggles", name: "Mog Goggles", image: "/gestures/Mog Goggles.png" },
-    { id: "pmbc-fistbump", name: "PMBC Fistbump", image: "/gestures/PMBC Fistbump.png" },
-    { id: "shaka", name: "Shaka", image: "/gestures/Shaka.png" },
-    { id: "skateboard", name: "Skateboard", image: "/gestures/Skateboard.png" },
+    { id: "1-50 Board", name: "1-50 Board", image: "/gestures/1-50 Board.png" },
+    { id: “long Board", name: "Long Board.png", image: "/gestures/Long Board.png" },
+    { id: “middle Finger", name: "Middle Finger", image: "/gestures/Middle Finger.png" },
+    { id: “mog Goggles", name: "Mog Goggles.", image: "/gestures/Mog Goggles.png" },
+    { id: "Phone Hand", name: "Phone Hand", image: "/gestures/Phone Hand.png" },
+    { id: “shaka Hand", name: "Shaka Hand", image: "/gestures/Shaka Hand.png" },
+    { id: "PMBC Fistbump", name: "PMBC Fistbump", image: "/gestures/PMBC Fistbump.png" },
+    { id: "Skateboard", name: "Skateboard", image: "/gestures/Skateboard.png" },
     { id: "surfboard", name: "Surfboard", image: "/gestures/Surfboard.png" },
+    { id: "Surfwax", name: "Surfwax", image: "/gestures/Surfwax.png" },
+    { id: "Skatewheel", name: "Skatewheel", image: "/gestures/Skatewheel.png" },
     { id: "taco", name: "Taco", image: "/gestures/Taco.png" },
-    { id: "long-board", name: "Long Board", image: "/gestures/Long Board.png" },
-    { id: "1-50-board", name: "1-50 Board", image: "/gestures/1-50 Board.png" },
+    { id: "Thumbs Up", name: "Thumbs Up", image: "/gestures/Thumbs Up.png" },
+    { id: "Wax surf", name: "Wax surf.png", image: "/gestures/Wax surf.png" },
   ]
 
   async function loadUserNFTs() {
