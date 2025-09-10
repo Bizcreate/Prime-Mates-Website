@@ -67,6 +67,13 @@ interface UserProfile {
   memberTier?: string
   totalNFTs?: number
   stakingPoints?: number
+  primeArcadeId?: string
+  balance?: number
+  energy?: number
+  shakaBalance?: number
+  levelProgress?: number
+  achievements?: any[]
+  twitterProfile?: any
 }
 
 interface StakingData {
@@ -321,6 +328,66 @@ export function MemberDashboard() {
     console.log("[v0] Loading user profile for address:", address)
 
     try {
+      if (currentFirebaseUser) {
+        console.log("[v0] Firebase user signed in, checking for Prime Arcade account...")
+
+        // Try to find existing Prime Arcade account by email
+        const primeArcadeRes = await fetch(`/api/prime-arcade-profile/${currentFirebaseUser.email}`)
+        if (primeArcadeRes.ok) {
+          const primeArcadeData = await primeArcadeRes.json()
+          console.log("[v0] Found existing Prime Arcade account:", primeArcadeData)
+
+          // Migrate Prime Arcade data to new profile structure
+          const migratedProfile = {
+            uid: currentFirebaseUser.uid,
+            id: currentFirebaseUser.uid,
+            name: primeArcadeData.name || currentFirebaseUser.displayName,
+            email: currentFirebaseUser.email,
+            connectedWallets: primeArcadeData.connectedWallets || [address],
+            primaryWallet: address,
+            createdAt: primeArcadeData.createdAt || new Date().toISOString(),
+            shippingAddress: primeArcadeData.shippingAddress,
+            memberTier: primeArcadeData.memberTier || "Holder",
+            totalNFTs: primeArcadeData.totalNFTs || 0,
+            stakingPoints: primeArcadeData.stakingPoints || 0,
+            // Prime Arcade specific data
+            primeArcadeId: primeArcadeData.id,
+            balance: primeArcadeData.balance || 0,
+            energy: primeArcadeData.energy || 0,
+            shakaBalance: primeArcadeData.shakaBalance || 0,
+            levelProgress: primeArcadeData.levelProgress || 0,
+            achievements: primeArcadeData.achievements || [],
+            twitterProfile: primeArcadeData.twitterProfile,
+          }
+
+          // Save migrated profile to Firestore
+          const saveRes = await fetch("/api/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(migratedProfile),
+          })
+
+          if (saveRes.ok) {
+            // Create wallet link
+            await fetch("/api/wallet-link", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                walletAddress: address,
+                userId: currentFirebaseUser.uid,
+              }),
+            })
+
+            setUserProfile(migratedProfile)
+            toast({
+              title: "Account Linked Successfully!",
+              description: "Your Prime Arcade account has been linked to this wallet.",
+            })
+            return
+          }
+        }
+      }
+
       // First check if wallet is already linked to a user
       const walletLinkRes = await fetch(`/api/wallet-link/${address}`)
       if (walletLinkRes.ok) {
