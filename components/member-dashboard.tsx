@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Wallet, Star, Package, Plus, User, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import StatsCard from "./StatsCard"
+import { ProfileCreationModal } from "./ProfileCreationModal"
 
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
 import { ethereum, polygon } from "thirdweb/chains"
@@ -26,11 +27,23 @@ interface NFTData {
 }
 
 interface UserProfile {
+  uid?: string
   id: string
+  name?: string
   email?: string
   connectedWallets: string[]
+  primaryWallet?: string
   createdAt: string
-  shippingAddress?: string
+  shippingAddress?: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+  memberTier?: string
+  totalNFTs?: number
+  stakingPoints?: number
 }
 
 interface StakingData {
@@ -76,6 +89,7 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showProfileCreation, setShowProfileCreation] = useState(false)
   const [stakingData, setStakingData] = useState<StakingData>({ stakedNFTs: 0, totalPoints: 0 })
   const [stakingLoading, setStakingLoading] = useState<string | null>(null)
 
@@ -279,43 +293,26 @@ export function MemberDashboard() {
         console.log("[v0] Found existing profile:", profile)
         setUserProfile(profile)
       } else {
-        console.log("[v0] No existing profile found, creating new profile")
-        const newProfile = {
-          id: address,
-          connectedWallets: [address],
-          createdAt: new Date().toISOString(),
-          email: null,
-          shippingAddress: null,
-        }
-
-        // Save the new profile to Firebase
-        const createRes = await fetch("/api/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newProfile),
-        })
-
-        if (createRes.ok) {
-          console.log("[v0] Successfully created new user profile")
-          setUserProfile(newProfile)
-          toast({
-            title: "Welcome!",
-            description: "Your profile has been created successfully",
-          })
-        } else {
-          console.error("[v0] Failed to create user profile")
-          setUserProfile(newProfile) // Set locally even if save failed
-        }
+        console.log("[v0] No existing profile found, showing profile creation modal")
+        setShowProfileCreation(true)
       }
     } catch (err) {
       console.error("[v0] profile error", err)
-      const fallbackProfile = {
-        id: address,
-        connectedWallets: [address],
-        createdAt: new Date().toISOString(),
-      }
-      setUserProfile(fallbackProfile)
+      setShowProfileCreation(true)
     }
+  }
+
+  const handleProfileCreated = (profile: UserProfile) => {
+    console.log("[v0] Profile created successfully:", profile)
+    setUserProfile(profile)
+    setShowProfileCreation(false)
+    toast({
+      title: "Welcome to Prime Mates!",
+      description: "Your profile has been created successfully. Loading your NFTs...",
+    })
+    // Load NFTs after profile creation
+    loadNFTs()
+    loadStakingData()
   }
 
   async function addWalletToProfile(walletAddress: string) {
@@ -357,14 +354,26 @@ export function MemberDashboard() {
   useEffect(() => {
     if (address) {
       loadUserProfile()
-      loadStakingData()
-      loadNFTs() // Fetch immediately after connect
+      if (userProfile) {
+        loadStakingData()
+        loadNFTs()
+      }
     }
-  }, [address])
+  }, [address, userProfile])
 
   const hasWallet = Boolean(address)
 
   const portfolioOverview = useMemo(() => `${totalNFTs} NFT${totalNFTs !== 1 ? "s" : ""} owned`, [totalNFTs])
+
+  if (showProfileCreation && address) {
+    return (
+      <ProfileCreationModal
+        walletAddress={address}
+        onProfileCreated={handleProfileCreated}
+        onClose={() => setShowProfileCreation(false)}
+      />
+    )
+  }
 
   if (!hasWallet) {
     return (
@@ -382,6 +391,20 @@ export function MemberDashboard() {
     )
   }
 
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Card className="bg-gray-900 border-yellow-400/30 max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-white mb-4">Loading Profile...</h2>
+            <p className="text-gray-400">Setting up your Prime Mates experience</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-7xl mx-auto">
@@ -389,7 +412,7 @@ export function MemberDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-yellow-400 mb-2">Member Dashboard</h1>
-            <p className="text-gray-400">Welcome back, PMBC member!</p>
+            <p className="text-gray-400">Welcome back, {userProfile.name || "PMBC member"}!</p>
           </div>
 
           <div className="flex items-center gap-4 mt-4 sm:mt-0">
@@ -424,7 +447,7 @@ export function MemberDashboard() {
             title="MATIC Balance"
             value={polygonBalance ? Number.parseFloat(polygonBalance.displayValue).toFixed(4) : "0.0000"}
           />
-          <StatsCard title="Member Tier" value={totalNFTs > 0 ? "Holder" : "Guest"} />
+          <StatsCard title="Member Tier" value={userProfile.memberTier || (totalNFTs > 0 ? "Holder" : "Guest")} />
         </div>
 
         {/* NFT Collection */}
@@ -522,6 +545,15 @@ export function MemberDashboard() {
                 </div>
 
                 <div className="space-y-4">
+                  <div className="text-center mb-4">
+                    <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <User className="h-8 w-8 text-black" />
+                    </div>
+                    <h4 className="text-lg font-bold text-white">{userProfile.name}</h4>
+                    <p className="text-sm text-gray-400">{userProfile.email}</p>
+                    <Badge className="mt-2 bg-yellow-400 text-black">{userProfile.memberTier || "Bronze"} Member</Badge>
+                  </div>
+
                   <div>
                     <p className="text-sm text-gray-400 mb-2">Connected Wallets</p>
                     {userProfile?.connectedWallets.map((wallet, index) => (
@@ -532,10 +564,26 @@ export function MemberDashboard() {
                         <span className="text-sm text-white font-mono">
                           {wallet.slice(0, 8)}...{wallet.slice(-6)}
                         </span>
-                        {index === 0 && <Badge className="bg-yellow-400 text-black">Primary</Badge>}
+                        {wallet === userProfile.primaryWallet && (
+                          <Badge className="bg-yellow-400 text-black">Primary</Badge>
+                        )}
                       </div>
                     ))}
                   </div>
+
+                  {userProfile.shippingAddress && (
+                    <div>
+                      <p className="text-sm text-gray-400 mb-2">Shipping Address</p>
+                      <div className="p-3 bg-black rounded border border-gray-700 text-sm text-white">
+                        <p>{userProfile.shippingAddress.street}</p>
+                        <p>
+                          {userProfile.shippingAddress.city}, {userProfile.shippingAddress.state}{" "}
+                          {userProfile.shippingAddress.zipCode}
+                        </p>
+                        <p>{userProfile.shippingAddress.country}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <Button
                     onClick={linkAdditionalWallet}

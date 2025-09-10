@@ -399,9 +399,7 @@ export default function GalleryPage() {
         <div className="container mx-auto px-4">
           <div className="text-center">
             <h1 className="text-5xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                NFT Collection Gallery
-              </span>
+              <span className="text-yellow-400">NFT Collection Gallery</span>
             </h1>
             <p className="text-xl text-gray-300 max-w-2xl mx-auto">
               Explore the complete Prime Mates NFT ecosystem. Browse collections, search specific tokens, and discover
