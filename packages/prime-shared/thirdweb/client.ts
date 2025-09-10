@@ -1,4 +1,3 @@
-"use client"
 import { createThirdwebClient } from "thirdweb"
 
 export const thirdwebClient = createThirdwebClient({
