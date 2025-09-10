@@ -374,10 +374,13 @@ export function MemberDashboard() {
   useEffect(() => {
     if (address) {
       loadUserProfile()
-      if (userProfile) {
-        loadStakingData()
-        loadNFTs()
-      }
+    }
+  }, [address])
+
+  useEffect(() => {
+    if (address && userProfile) {
+      loadStakingData()
+      loadNFTs()
     }
   }, [address, userProfile])
 
