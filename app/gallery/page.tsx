@@ -1,423 +1,1021 @@
-// packages/prime-shared/components/PfpBackgroundStudio.tsx
-"use client";
+"use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, ExternalLink, Loader2, RefreshCw, Download, Share, Palette, Wand2, AlertCircle } from "lucide-react"
+import { useActiveAccount } from "thirdweb/react"
+import { Insight } from "thirdweb"
+import { ethereum, polygon } from "thirdweb/chains"
+import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client"
+import { ConnectWidget } from "@/components/ConnectWidget"
+import PfpBackgroundStudio from "@/components/PfpBackgroundStudio"
 
-// Minimal, dependency-free PFP cutout + compositor for wallpapers/banners.
-// Why: runs fully client-side; works for PNGs with transparency or flat backgrounds via chroma-key.
+const collections = [
+  {
+    name: "Prime Mates Board Club",
+    address: "0x7d8820fa92eb1584636f4f5b8515b5bd5d20e1a0",
+    totalSupply: 10000,
+    theme: "blue",
+    chainId: 1,
+  },
+  {
+    name: "Prime To The Bone",
+    address: "0x9c57d0278199c931cf149cc769f37bb7847091e7",
+    totalSupply: 6666,
+    theme: "purple",
+    chainId: 137,
+  },
+  {
+    name: "Prime Halloween",
+    address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8",
+    totalSupply: 666,
+    theme: "orange",
+    chainId: 1,
+  },
+  {
+    name: "Prime Christmas",
+    address: "0x123456789abcdef123456789abcdef1234567890",
+    totalSupply: 1000,
+    theme: "green",
+    chainId: 137,
+  },
+] as const
 
-// -----------------------------
-// helpers
-// -----------------------------
-
-type RGB = { r: number; g: number; b: number };
-
-function clamp(v: number, lo = 0, hi = 255) {
-  return Math.max(lo, Math.min(hi, v));
+interface NFTData {
+  tokenId: string
+  name: string
+  image: string
+  description?: string
+  attributes?: Array<{ trait_type: string; value: string }>
+  owner?: string | null
+  collection?: string
+  tokenAddress?: string
+  chainId?: number
 }
 
-function colorDist(a: RGB, b: RGB) {
-  const dr = a.r - b.r,
-    dg = a.g - b.g,
-    db = a.b - b.b;
-  return Math.sqrt(dr * dr + dg * dg + db * db);
+const IPFS_GATEWAYS = ["https://ipfs.io/ipfs/", "https://cloudflare-ipfs.com/ipfs/", "https://nftstorage.link/ipfs/"]
+
+function ipfsToHttp(url?: string): string | undefined {
+  if (!url) return undefined
+  if (!url.startsWith("ipfs://")) return url
+  const rest = url.replace("ipfs://", "")
+  return `${IPFS_GATEWAYS[0]}${rest}`
 }
 
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous"; // important for canvas export
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = src;
-  });
+function pickImage(meta: any): string {
+  return (
+    ipfsToHttp(meta?.image) ||
+    ipfsToHttp(meta?.image_url) ||
+    ipfsToHttp(meta?.imageURI) ||
+    ipfsToHttp(meta?.animation_url) ||
+    "/prime-mates-nft.jpg"
+  )
 }
 
-function drawImageContain(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  targetW: number,
-  targetH: number
-) {
-  const s = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
-  const w = Math.round(img.naturalWidth * s);
-  const h = Math.round(img.naturalHeight * s);
-  const x = Math.floor((targetW - w) / 2);
-  const y = Math.floor((targetH - h) / 2);
-  ctx.drawImage(img, x, y, w, h);
-  return { x, y, w, h };
+function chainFromId(id: number) {
+  return id === 1 ? ethereum : polygon
 }
 
-function getImageDataFrom(img: HTMLImageElement, maxSide = 2048) {
-  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-  const w = Math.max(1, Math.floor(img.width * scale));
-  const h = Math.max(1, Math.floor(img.height * scale));
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d")!;
-  g.imageSmoothingEnabled = true;
-  g.imageSmoothingQuality = "high";
-  g.drawImage(img, 0, 0, w, h);
-  const data = g.getImageData(0, 0, w, h);
-  return { canvas: c, ctx: g, data };
+function openSeaUrl(chainId: number, contract: string, tokenId: string | number) {
+  const base = chainId === 1 ? "ethereum" : "matic"
+  return `https://opensea.io/assets/${base}/${contract}/${tokenId}`
 }
 
-function avg(colors: RGB[]): RGB {
-  const n = colors.length || 1;
-  const s = colors.reduce((a, c) => ({ r: a.r + c.r, g: a.g + c.g, b: a.b + c.b }), { r: 0, g: 0, b: 0 });
-  return { r: s.r / n, g: s.g / n, b: s.b / n };
-}
-
-function sampleCorners(data: ImageData, patch = 16): RGB[] {
-  const { width: W, height: H, data: A } = data;
-  const coords = [
-    [0, 0],
-    [W - patch, 0],
-    [0, H - patch],
-    [W - patch, H - patch],
-  ] as const;
-  const out: RGB[] = [];
-  for (const [sx, sy] of coords) {
-    let r = 0,
-      g = 0,
-      b = 0,
-      n = 0;
-    for (let y = sy; y < Math.min(H, sy + patch); y++) {
-      for (let x = sx; x < Math.min(W, sx + patch); x++) {
-        const i = (y * W + x) * 4;
-        const a = A[i + 3];
-        // ignore fully transparent pixels
-        if (a < 8) continue;
-        r += A[i + 0];
-        g += A[i + 1];
-        b += A[i + 2];
-        n++;
-      }
-    }
-    out.push({ r: n ? r / n : 0, g: n ? g / n : 0, b: n ? b / n : 0 });
+function themeGradient(theme: string) {
+  switch (theme) {
+    case "gold":
+      return "from-yellow-500 to-yellow-600"
+    case "red":
+      return "from-red-500 to-red-600"
+    case "orange":
+      return "from-orange-500 to-orange-600"
+    case "green":
+      return "from-green-500 to-green-600"
+    case "blue":
+      return "from-blue-500 to-blue-600"
+    case "purple":
+      return "from-purple-500 to-purple-600"
+    default:
+      return "from-yellow-500 to-yellow-600"
   }
-  return out;
 }
 
-function transparencyCoverage(data: ImageData) {
-  const A = data.data;
-  let opaque = 0;
-  for (let i = 3; i < A.length; i += 4) if (A[i] > 4) opaque++;
-  return opaque / (A.length / 4);
-}
+export default function GalleryPage() {
+  const account = useActiveAccount()
+  const walletAddress = account?.address
+  const isConnected = !!account
 
-function buildMask(
-  data: ImageData,
-  bgColors: RGB[],
-  threshold = 30,
-  feather = 2
-): Uint8ClampedArray {
-  const { width: W, height: H, data: A } = data;
-  const mask = new Uint8ClampedArray(W * H);
+  const [activeTab, setActiveTab] = useState("collections")
 
-  // raw mask by thresholding distance to nearest corner color
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      const a = A[i + 3];
-      if (a < 8) {
-        mask[y * W + x] = 0; // already transparent
-        continue;
-      }
-      const p: RGB = { r: A[i], g: A[i + 1], b: A[i + 2] };
-      let minD = 1e9;
-      for (const c of bgColors) minD = Math.min(minD, colorDist(p, c));
-      mask[y * W + x] = minD < threshold ? 0 : 255;
+  // Collections tab state
+  const [selectedCollection, setSelectedCollection] = useState<(typeof collections)[number]>(collections[0])
+  const [searchTokenId, setSearchTokenId] = useState("")
+  const [nfts, setNfts] = useState<NFTData[]>([])
+  const [searchedNFT, setSearchedNFT] = useState<NFTData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(1)
+  const perPage = 12
+
+  // My collection state
+  const [userNFTs, setUserNFTs] = useState<NFTData[]>([])
+  const [walletLoading, setWalletLoading] = useState(false)
+
+  // Gesture Studio state
+  const [selectedNFT, setSelectedNFT] = useState<NFTData | null>(null)
+  const [selectedGesture, setSelectedGesture] = useState<string>("")
+  const [compositeImage, setCompositeImage] = useState<string>("")
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const [selectedArtNFT, setSelectedArtNFT] = useState<any>(null)
+
+  const collectionByAddr = useMemo(
+    () => Object.fromEntries(collections.map((c) => [c.address.toLowerCase(), { name: c.name, chainId: c.chainId }])),
+    [],
+  )
+
+  // Gesture overlays
+  const gestureOverlays = [
+    { id: "gm-coffee", name: "GM Coffee", image: "/gestures/gm-coffee.png" },
+    { id: "middle-finger", name: "Middle Finger", image: "/gestures/MiddleFinger.png" },
+    { id: "phone-hand", name: "Phone Hand", image: "/gestures/PhoneHand.png" },
+    { id: "shaka-hand", name: "Shaka Hand", image: "/gestures/ShakaHand.png" },
+    { id: "skatewheel", name: "Skatewheel", image: "/gestures/Skatewheel.png" },
+    { id: "surfwax", name: "Surfwax", image: "/gestures/Surfwax.png" },
+    { id: "thumbs-up", name: "Thumbs Up", image: "/gestures/ThumbsUp.png" },
+    { id: "wax-surf", name: "Wax Surf", image: "/gestures/Waxsurf.png" },
+  ]
+
+  async function loadUserNFTs() {
+    if (!isConnected || !walletAddress) {
+      setUserNFTs([])
+      return
     }
-  }
+    setWalletLoading(true)
+    try {
+      const addrs = collections.map((c) => c.address)
+      const owned = await Insight.getOwnedNFTs({
+        client: thirdwebClient,
+        chains: [ethereum, polygon],
+        ownerAddress: walletAddress,
+        contractAddresses: addrs,
+        includeMetadata: true,
+        queryOptions: { resolve_metadata_links: "true", limit: 500 },
+      })
 
-  // simple feather via 3x3 box blur repeated
-  const tmp = new Uint8ClampedArray(W * H);
-  for (let f = 0; f < feather; f++) {
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        let s = 0,
-          n = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const xx = x + dx,
-              yy = y + dy;
-            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-            s += mask[yy * W + xx];
-            n++;
-          }
+      const mapped: NFTData[] = owned.map((n) => {
+        const meta = n.metadata || {}
+        const info = collectionByAddr[n.tokenAddress.toLowerCase()]
+        return {
+          tokenId: n.id.toString(),
+          name: meta.name || `${info?.name ?? "Token"} #${n.id.toString()}`,
+          image: pickImage(meta),
+          description: meta.description,
+          attributes: Array.isArray(meta.attributes) ? meta.attributes : [],
+          owner: n.owner,
+          collection: info?.name,
+          tokenAddress: n.tokenAddress,
+          chainId: n.chainId,
         }
-        tmp[y * W + x] = s / n;
-      }
+      })
+
+      mapped.sort((a, b) =>
+        a.collection === b.collection
+          ? Number(a.tokenId) - Number(b.tokenId)
+          : (a.collection || "").localeCompare(b.collection || ""),
+      )
+
+      setUserNFTs(mapped)
+    } catch (err) {
+      console.error("[gallery] loadUserNFTs error", err)
+      setUserNFTs([])
+    } finally {
+      setWalletLoading(false)
     }
-    mask.set(tmp);
   }
-  return mask;
-}
 
-function cutoutToCanvas(src: ImageData, mask: Uint8ClampedArray) {
-  const { width: W, height: H, data } = src;
-  const out = new ImageData(W, H);
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    out.data[i + 0] = data[i + 0];
-    out.data[i + 1] = data[i + 1];
-    out.data[i + 2] = data[i + 2];
-    out.data[i + 3] = Math.min(data[i + 3], mask[p]);
-  }
-  const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
-  const g = c.getContext("2d")!;
-  g.putImageData(out, 0, 0);
-  return c;
-}
+  async function loadCollectionNFTs(reset = false) {
+    setLoading(true)
+    setError("")
+    try {
+      const usePage = reset ? 1 : page
+      const chain = chainFromId(selectedCollection.chainId)
 
-function dataUrlToBlob(dataUrl: string) {
-  const arr = dataUrl.split(",");
-  const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8 = new Uint8Array(n);
-  while (n--) u8[n] = bstr.charCodeAt(n);
-  return new Blob([u8], { type: mime });
-}
+      const list = await Insight.getContractNFTs({
+        client: thirdwebClient,
+        chains: [chain],
+        contractAddress: selectedCollection.address,
+        includeMetadata: true,
+        includeOwners: true,
+        queryOptions: { resolve_metadata_links: "true", limit: perPage, page: usePage },
+      })
 
-// -----------------------------
-// component
-// -----------------------------
+      const mapped: NFTData[] = list.map((n) => ({
+        tokenId: n.id.toString(),
+        name: n.metadata?.name || `${selectedCollection.name} #${n.id.toString()}`,
+        image: pickImage(n.metadata),
+        description: n.metadata?.description,
+        attributes: Array.isArray(n.metadata?.attributes) ? n.metadata?.attributes : [],
+        owner: n.owner,
+        collection: selectedCollection.name,
+        tokenAddress: n.tokenAddress,
+        chainId: n.chainId,
+      }))
 
-export type Template = "square1024" | "pfpCircle1024" | "phone1080x1920" | "twitter1500x500";
-
-type Props = {
-  imageUrl: string; // NFT image (ipfs gateway converted to http)
-  name?: string;
-};
-
-const templateSize: Record<Template, { w: number; h: number }> = {
-  square1024: { w: 1024, h: 1024 },
-  pfpCircle1024: { w: 1024, h: 1024 },
-  phone1080x1920: { w: 1080, h: 1920 },
-  twitter1500x500: { w: 1500, h: 500 },
-};
-
-const gradients = [
-  { id: "gold", css: "linear-gradient(135deg,#FDE68A,#F59E0B)" },
-  { id: "lava", css: "linear-gradient(135deg,#FB7185,#F97316)" },
-  { id: "ocean", css: "linear-gradient(135deg,#22D3EE,#3B82F6)" },
-  { id: "night", css: "linear-gradient(135deg,#111827,#374151)" },
-];
-
-export default function PfpBackgroundStudio({ imageUrl, name }: Props) {
-  const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
-  const [cutout, setCutout] = useState<HTMLCanvasElement | null>(null);
-  const [useAutoBgRemoval, setUseAutoBgRemoval] = useState(true);
-  const [threshold, setThreshold] = useState(36);
-  const [feather, setFeather] = useState(2);
-
-  // composition state
-  const [template, setTemplate] = useState<Template>("square1024");
-  const [bgColor, setBgColor] = useState("#0f172a");
-  const [bgGradient, setBgGradient] = useState<string | null>(gradients[0].css);
-  const [scale, setScale] = useState(1.1); // cutout scale
-  const [offsetX, setOffsetX] = useState(0);
-  const [offsetY, setOffsetY] = useState(0);
-  const [gesture, setGesture] = useState<string | null>(null);
-
-  const outputRef = useRef<HTMLCanvasElement>(null);
-
-  // Load NFT image
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const img = await loadImage(imageUrl);
-        if (!cancelled) setLoadedImg(img);
-      } catch (e) {
-        console.error("Failed to load image", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [imageUrl]);
-
-  // Build cutout when loaded/controls change
-  useEffect(() => {
-    if (!loadedImg) return;
-    (async () => {
-      const { data } = getImageDataFrom(loadedImg, 1024);
-      const coverage = transparencyCoverage(data); // 0..1
-      let mask: Uint8ClampedArray | null = null;
-      if (coverage < 0.99 && useAutoBgRemoval) {
-        // try chroma-key using corner samples
-        const corners = sampleCorners(data, 24);
-        mask = buildMask(data, [avg(corners)], threshold, feather);
-      }
-      const cut = cutoutToCanvas(data, mask || new Uint8ClampedArray(data.width * data.height).fill(255));
-      setCutout(cut);
-    })();
-  }, [loadedImg, threshold, feather, useAutoBgRemoval]);
-
-  // Compose to output when any state changes
-  useEffect(() => {
-    const out = outputRef.current;
-    if (!out) return;
-    const size = templateSize[template];
-    out.width = size.w;
-    out.height = size.h;
-    const g = out.getContext("2d")!;
-    g.imageSmoothingEnabled = true;
-    g.imageSmoothingQuality = "high";
-
-    // background
-    if (bgGradient) {
-      // draw gradient by creating a temp element and reading computed style
-      // Simpler: approximate by two-color linear gradient left->right
-      const grad = g.createLinearGradient(0, 0, size.w, size.h);
-      if (bgGradient.includes("#")) {
-        // not robust parse; works for our presets
-        const stops = bgGradient.match(/#([0-9a-fA-F]{6})/g) || [bgColor, bgColor];
-        grad.addColorStop(0, stops[0]);
-        grad.addColorStop(1, stops[stops.length - 1]);
+      setNfts((prev) => (reset ? mapped : [...prev, ...mapped]))
+      setHasMore(mapped.length === perPage)
+      if (reset) setPage(1)
+    } catch (err) {
+      console.error("[gallery] loadCollectionNFTs error", err)
+      if (err?.message?.includes("Unauthorized domain")) {
+        setError("Preview domain not authorized. Collections will be available after deployment.")
+        if (reset) {
+          const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
+            tokenId: (i + 1).toString(),
+            name: `${selectedCollection.name} #${i + 1}`,
+            image: "/prime-mates-nft.jpg",
+            description: `Preview of ${selectedCollection.name} collection`,
+            attributes: [],
+            owner: "",
+            collection: selectedCollection.name,
+            tokenAddress: selectedCollection.address,
+            chainId: selectedCollection.chainId,
+          }))
+          setNfts(placeholderNFTs)
+        }
       } else {
-        grad.addColorStop(0, bgColor);
-        grad.addColorStop(1, bgColor);
+        setError("Failed to load NFTs. Please try again.")
+        if (reset) setNfts([])
       }
-      g.fillStyle = grad;
-      g.fillRect(0, 0, size.w, size.h);
-    } else {
-      g.fillStyle = bgColor;
-      g.fillRect(0, 0, size.w, size.h);
+    } finally {
+      setLoading(false)
     }
-
-    // cutout placement
-    if (cutout) {
-      const targetMax = Math.min(size.w, size.h) * scale;
-      const s = Math.min(targetMax / cutout.width, targetMax / cutout.height);
-      const w = cutout.width * s;
-      const h = cutout.height * s;
-      const cx = size.w / 2 + offsetX;
-      const cy = size.h / 2 + offsetY;
-      const x = Math.round(cx - w / 2);
-      const y = Math.round(cy - h / 2);
-      g.drawImage(cutout, x, y, w, h);
-
-      if (template === "pfpCircle1024") {
-        // mask to circle
-        const mask = document.createElement("canvas");
-        mask.width = size.w;
-        mask.height = size.h;
-        const mg = mask.getContext("2d")!;
-        mg.drawImage(out, 0, 0);
-        g.clearRect(0, 0, size.w, size.h);
-        g.save();
-        g.beginPath();
-        g.arc(size.w / 2, size.h / 2, size.w / 2 - 4, 0, Math.PI * 2);
-        g.clip();
-        g.drawImage(mask, 0, 0);
-        g.restore();
-      }
-    }
-
-    // optional gesture overlay
-    if (gesture) {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        g.drawImage(img, 0, 0, size.w, size.h);
-      };
-      img.src = gesture;
-    }
-  }, [cutout, template, bgColor, bgGradient, scale, offsetX, offsetY, gesture]);
-
-  function onDownload() {
-    const out = outputRef.current;
-    if (!out) return;
-    const url = out.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.download = `${(name || "prime-mate").replace(/\s+/g, "_")}_${template}.png`;
-    a.href = url;
-    a.click();
   }
+
+  async function searchNFT() {
+    if (!searchTokenId || isNaN(Number(searchTokenId))) return
+    setLoading(true)
+    try {
+      const tokenId = BigInt(searchTokenId)
+      const nft = await Insight.getNFT({
+        client: thirdwebClient,
+        chain: chainFromId(selectedCollection.chainId),
+        contractAddress: selectedCollection.address,
+        tokenId,
+        includeOwners: true,
+        queryOptions: { resolve_metadata_links: "true" },
+      })
+
+      if (nft) {
+        const meta = nft.metadata || {}
+        setSearchedNFT({
+          tokenId: nft.id.toString(),
+          name: meta.name || `${selectedCollection.name} #${nft.id.toString()}`,
+          image: pickImage(meta),
+          description: meta.description,
+          attributes: Array.isArray(meta.attributes) ? meta.attributes : [],
+          owner: nft.owner,
+          collection: selectedCollection.name,
+          tokenAddress: nft.tokenAddress,
+          chainId: nft.chainId,
+        })
+      } else {
+        setSearchedNFT({
+          tokenId: tokenId.toString(),
+          name: `${selectedCollection.name} #${tokenId.toString()}`,
+          image: "/abstract-nft-concept.png",
+          description: `${selectedCollection.name} NFT #${tokenId.toString()} - This token may not be minted yet.`,
+          attributes: [{ trait_type: "Status", value: "Not Minted" }],
+        })
+      }
+    } catch (err) {
+      console.error("[gallery] searchNFT error", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Gesture composition function
+  async function generateComposite() {
+    if (!selectedNFT || !selectedGesture) return
+
+    setIsGenerating(true)
+    try {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      canvas.width = 512
+      canvas.height = 512
+
+      // Load NFT image
+      const nftImg = new Image()
+      nftImg.crossOrigin = "anonymous"
+      await new Promise((resolve, reject) => {
+        nftImg.onload = resolve
+        nftImg.onerror = reject
+        nftImg.src = selectedNFT.image || "/prime-mates-nft.jpg"
+      })
+
+      // Load gesture overlay
+      const gestureImg = new Image()
+      gestureImg.crossOrigin = "anonymous"
+      await new Promise((resolve, reject) => {
+        gestureImg.onload = resolve
+        gestureImg.onerror = reject
+        gestureImg.src = gestureOverlays.find((g) => g.id === selectedGesture)?.image || ""
+      })
+
+      // Draw NFT as background
+      ctx.drawImage(nftImg, 0, 0, canvas.width, canvas.height)
+
+      // Draw gesture overlay
+      ctx.drawImage(gestureImg, 0, 0, canvas.width, canvas.height)
+
+      setCompositeImage(canvas.toDataURL("image/png"))
+    } catch (error) {
+      console.error("Error generating composite:", error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  function downloadComposite() {
+    if (!compositeImage) return
+
+    const link = document.createElement("a")
+    link.download = `${selectedNFT?.name || "nft"}-gesture.png`
+    link.href = compositeImage
+    link.click()
+  }
+
+  function shareToTwitter() {
+    if (!compositeImage || !selectedNFT) return
+
+    const text = `Check out my ${selectedNFT.name} with gesture overlay! #PrimeMates #NFT`
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`
+    window.open(url, "_blank")
+  }
+
+  function isNFTOwned(nft: NFTData): boolean {
+    if (!walletAddress || !nft.owner) return false
+    return walletAddress.toLowerCase() === nft.owner.toLowerCase()
+  }
+
+  function openGestureBuilder(nft: NFTData, collectionName: string) {
+    console.log("Gesture builder functionality is now available in the Gesture Studio tab")
+  }
+
+  useEffect(() => {
+    if (selectedNFT && selectedGesture && activeTab === "gesture") {
+      generateComposite()
+    }
+  }, [selectedNFT, selectedGesture, activeTab])
+
+  useEffect(() => {
+    if (activeTab === "collections") {
+      setSearchedNFT(null)
+      setNfts([])
+      setPage(1)
+      setError("")
+      setHasMore(true)
+      loadCollectionNFTs(true)
+    }
+  }, [selectedCollection, activeTab])
+
+  useEffect(() => {
+    loadUserNFTs()
+  }, [isConnected, walletAddress])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
-      {/* controls */}
-      <div className="space-y-6">
-        <div className="p-4 rounded-xl border border-gray-800 bg-gray-900">
-          <div className="font-semibold mb-3">Cutout</div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={useAutoBgRemoval} onChange={(e) => setUseAutoBgRemoval(e.target.checked)} />
-            Auto remove flat background
-          </label>
-          <div className="mt-3 text-xs opacity-70">If your NFT is a PNG with transparency, uncheck this.</div>
-          <div className="mt-4">
-            <label className="text-sm">Threshold: {threshold}</label>
-            <input type="range" min={10} max={80} value={threshold} onChange={(e) => setThreshold(parseInt(e.target.value))} className="w-full" />
-          </div>
-          <div className="mt-2">
-            <label className="text-sm">Feather: {feather}px</label>
-            <input type="range" min={0} max={5} value={feather} onChange={(e) => setFeather(parseInt(e.target.value))} className="w-full" />
+    <div className="min-h-screen bg-black text-white">
+      {/* Header */}
+      <div className="relative bg-gradient-to-r from-gray-900 to-black py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-5xl font-bold mb-4">
+              <span className="text-yellow-400">NFT Collection Gallery</span>
+            </h1>
+            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              Explore the complete Prime Mates NFT ecosystem. Browse collections, search specific tokens, and discover
+              unique digital art.
+            </p>
           </div>
         </div>
-
-        <div className="p-4 rounded-xl border border-gray-800 bg-gray-900 space-y-3">
-          <div className="font-semibold">Template</div>
-          <select value={template} onChange={(e) => setTemplate(e.target.value as Template)} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2">
-            <option value="square1024">Square 1024 × 1024</option>
-            <option value="pfpCircle1024">PFP Circle 1024 × 1024</option>
-            <option value="phone1080x1920">Phone 1080 × 1920</option>
-            <option value="twitter1500x500">Twitter Banner 1500 × 500</option>
-          </select>
-        </div>
-
-        <div className="p-4 rounded-xl border border-gray-800 bg-gray-900 space-y-3">
-          <div className="font-semibold">Background</div>
-          <div className="flex items-center gap-3">
-            <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="h-8 w-10 rounded" />
-            <button className={`px-2 py-1 rounded border ${bgGradient ? "border-yellow-500 text-yellow-400" : "border-gray-700 text-gray-300"}`} onClick={() => setBgGradient(bgGradient ? null : gradients[0].css)}>
-              {bgGradient ? "Disable gradient" : "Enable gradient"}
-            </button>
-          </div>
-          <div className="grid grid-cols-4 gap-2 mt-2">
-            {gradients.map((g) => (
-              <button key={g.id} onClick={() => setBgGradient(g.css)} className="h-8 rounded border border-gray-700" style={{ backgroundImage: g.css }} />
-            ))}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-gray-800 bg-gray-900 space-y-2">
-          <div className="font-semibold">Placement</div>
-          <label className="text-sm">Scale: {scale.toFixed(2)}x</label>
-          <input type="range" min={0.5} max={2.5} step={0.01} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-full" />
-          <label className="text-sm">Offset X: {offsetX}px</label>
-          <input type="range" min={-600} max={600} step={1} value={offsetX} onChange={(e) => setOffsetX(parseInt(e.target.value))} className="w-full" />
-          <label className="text-sm">Offset Y: {offsetY}px</label>
-          <input type="range" min={-600} max={600} step={1} value={offsetY} onChange={(e) => setOffsetY(parseInt(e.target.value))} className="w-full" />
-        </div>
-
-        <div className="p-4 rounded-xl border border-gray-800 bg-gray-900 space-y-2">
-          <div className="font-semibold">Gesture Overlay</div>
-          <div className="text-xs opacity-70">Paste an overlay image URL (PNG with transparency) or leave blank.</div>
-          <input className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2" placeholder="/gestures/ShakaHand.png" value={gesture || ""} onChange={(e) => setGesture(e.target.value || null)} />
-        </div>
-
-        <button onClick={onDownload} className="w-full rounded-xl bg-yellow-500 text-black font-semibold py-2 hover:opacity-90">Download PNG</button>
       </div>
 
-      {/* output */}
-      <div className="p-4 rounded-xl border border-gray-800 bg-gray-900">
-        <div className="text-sm opacity-70 mb-2">Preview</div>
-        <div className="flex items-center justify-center">
-          <canvas ref={outputRef} className="max-w-full h-auto border border-gray-800 rounded-lg" />
-        </div>
+      <div className="container mx-auto px-4 py-12">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 bg-gray-900 border border-gray-800 mb-8">
+            <TabsTrigger
+              value="collections"
+              className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            >
+              Collections
+            </TabsTrigger>
+            <TabsTrigger
+              value="my-collection"
+              className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            >
+              My Collection
+            </TabsTrigger>
+            <TabsTrigger value="gesture" className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black">
+              <Wand2 className="w-4 h-4 mr-2" />
+              Gesture Studio
+            </TabsTrigger>
+            <TabsTrigger
+              value="art-gallery"
+              className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            >
+              <Palette className="w-4 h-4 mr-2" />
+              Art Gallery
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Existing TabsContent for collections */}
+          <TabsContent value="collections">
+            {/* Controls */}
+            <div className="flex flex-col lg:flex-row gap-6 mb-12">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Select Collection</label>
+                <Select
+                  value={selectedCollection.address}
+                  onValueChange={(value) => {
+                    const c = collections.find((x) => x.address === value)
+                    if (c) setSelectedCollection(c)
+                  }}
+                >
+                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    {collections.map((c) => (
+                      <SelectItem key={c.address} value={c.address} className="text-white hover:bg-gray-700">
+                        {c.name} ({c.totalSupply} NFTs)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Search Token ID</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder={`1 - ${selectedCollection.totalSupply}`}
+                    value={searchTokenId}
+                    onChange={(e) => setSearchTokenId(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    min={1}
+                    max={selectedCollection.totalSupply}
+                  />
+                  <Button
+                    onClick={searchNFT}
+                    disabled={loading || !searchTokenId}
+                    className={`bg-gradient-to-r ${themeGradient(selectedCollection.theme)} hover:opacity-90 text-black font-semibold`}
+                    aria-label="Search NFT by token id"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    onClick={() => loadCollectionNFTs(true)}
+                    variant="ghost"
+                    className="text-gray-400 hover:text-white"
+                    aria-label="Refresh collection"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Collection Info */}
+            <div className="bg-gray-900 rounded-xl p-6 mb-8 border border-gray-800">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">{selectedCollection.name}</h2>
+                  <p className="text-gray-400">Contract: {selectedCollection.address}</p>
+                  <p className="text-gray-500 text-sm">
+                    Network: {selectedCollection.chainId === 1 ? "Ethereum" : "Polygon"}
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="text-center">
+                    <div
+                      className={`text-2xl font-bold bg-gradient-to-r ${themeGradient(selectedCollection.theme)} bg-clip-text text-transparent`}
+                    >
+                      {selectedCollection.totalSupply}
+                    </div>
+                    <div className="text-sm text-gray-400">Total Supply</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search Result */}
+            {searchedNFT && (
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold mb-6 text-center">
+                  <span
+                    className={`bg-gradient-to-r ${themeGradient(selectedCollection.theme)} bg-clip-text text-transparent`}
+                  >
+                    Search Result
+                  </span>
+                </h3>
+                <div className="max-w-md mx-auto">
+                  <Card className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition-all duration-300">
+                    <CardContent className="p-4">
+                      <div className="aspect-square mb-4 rounded-lg overflow-hidden bg-gray-800">
+                        <img
+                          src={searchedNFT.image || "/placeholder.svg"}
+                          alt={searchedNFT.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                        />
+                      </div>
+                      <h4 className="font-bold text-lg mb-2">{searchedNFT.name}</h4>
+                      <p className="text-gray-400 text-sm mb-3">{searchedNFT.description}</p>
+                      {searchedNFT.attributes?.length ? (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {searchedNFT.attributes.map((attr, i) => (
+                            <Badge key={i} variant="secondary" className="bg-gray-800 text-gray-300">
+                              {attr.trait_type}: {attr.value}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                      {searchedNFT.tokenAddress && searchedNFT.chainId && (
+                        <a
+                          href={openSeaUrl(searchedNFT.chainId, searchedNFT.tokenAddress, searchedNFT.tokenId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block"
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black bg-transparent"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View on OpenSea
+                          </Button>
+                        </a>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Collection Grid */}
+            <div>
+              <h3 className="text-2xl font-bold mb-6 text-center">
+                <span
+                  className={`bg-gradient-to-r ${themeGradient(selectedCollection.theme)} bg-clip-text text-transparent`}
+                >
+                  Collection Preview
+                </span>
+              </h3>
+
+              {error && (
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-yellow-400">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="font-medium">Notice</span>
+                  </div>
+                  <p className="text-gray-300 mt-1">{error}</p>
+                </div>
+              )}
+
+              {loading && nfts.length === 0 ? (
+                <div className="flex justify-center items-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
+                  <span className="ml-2 text-gray-400">Loading NFTs...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {nfts.map((nft) => (
+                      <Card
+                        key={`${nft.tokenAddress}-${nft.tokenId}`}
+                        className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition-all duration-300 group"
+                      >
+                        <CardContent className="p-4">
+                          <div className="aspect-square mb-4 rounded-lg overflow-hidden bg-gray-800">
+                            <img
+                              src={nft.image || "/placeholder.svg"}
+                              alt={nft.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                            />
+                          </div>
+                          <h4 className="font-bold text-lg mb-2">{nft.name}</h4>
+                          <p className="text-gray-400 text-sm mb-3 line-clamp-2">{nft.description}</p>
+                          {nft.attributes?.length ? (
+                            <div className="flex flex-wrap gap-1 mb-4">
+                              {nft.attributes.slice(0, 2).map((attr, i) => (
+                                <Badge key={i} variant="secondary" className="bg-gray-800 text-gray-300 text-xs">
+                                  {attr.value}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="flex gap-2">
+                            {nft.tokenAddress && nft.chainId && (
+                              <a
+                                href={openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-full"
+                              >
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black bg-transparent"
+                                >
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  View on OpenSea
+                                </Button>
+                              </a>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {hasMore && !error && (
+                    <div className="flex justify-center mt-8">
+                      <Button
+                        onClick={() => {
+                          setPage((p) => p + 1)
+                          loadCollectionNFTs()
+                        }}
+                        disabled={loading}
+                        variant="outline"
+                        className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black"
+                      >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Load More"}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Existing TabsContent for my-collection */}
+          <TabsContent value="my-collection">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+                  My NFT Collection
+                </span>
+              </h2>
+              <p className="text-gray-400 mb-6">
+                Connect your wallet to view your Prime Mates NFTs across all collections
+              </p>
+
+              {!isConnected ? (
+                <ConnectWidget />
+              ) : (
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                  <p className="text-sm text-gray-400 mb-2">Connected Wallet</p>
+                  <p className="font-mono text-yellow-500">{walletAddress}</p>
+                  <div className="flex items-center justify-center gap-3 mt-3">
+                    <p className="text-sm text-gray-400">Found {userNFTs.length} NFTs</p>
+                    <Button
+                      onClick={loadUserNFTs}
+                      variant="ghost"
+                      className="text-gray-400 hover:text-white"
+                      aria-label="Refresh my collection"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${walletLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {walletLoading ? (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
+                <span className="ml-2 text-gray-400">Loading your NFTs...</span>
+              </div>
+            ) : userNFTs.length > 0 ? (
+              <div>
+                {collections.map((collection) => {
+                  const group = userNFTs.filter((n) => n.collection === collection.name)
+                  if (group.length === 0) return null
+                  return (
+                    <div key={collection.address} className="mb-12">
+                      <h3 className="text-xl font-bold mb-6 flex items-center gap-3">
+                        <span
+                          className={`bg-gradient-to-r ${themeGradient(collection.theme)} bg-clip-text text-transparent`}
+                        >
+                          {collection.name}
+                        </span>
+                        <Badge variant="secondary" className="bg-gray-800">
+                          {group.length} NFTs
+                        </Badge>
+                      </h3>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {group.map((nft) => (
+                          <Card
+                            key={`${nft.tokenAddress}-${nft.tokenId}`}
+                            className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition-all duration-300 group"
+                          >
+                            <CardContent className="p-4">
+                              <div className="aspect-square mb-4 rounded-lg overflow-hidden bg-gray-800">
+                                <img
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                                />
+                              </div>
+                              <h4 className="font-bold text-lg mb-2">{nft.name}</h4>
+                              <div className="flex items-center justify-between mb-3">
+                                <Badge variant="secondary" className="bg-gray-800 text-gray-300">
+                                  #{nft.tokenId}
+                                </Badge>
+                                {nft.attributes?.find((a) => a.trait_type?.toLowerCase() === "rarity")?.value && (
+                                  <Badge
+                                    variant="secondary"
+                                    className={`bg-gradient-to-r ${themeGradient(collection.theme)} text-black`}
+                                  >
+                                    {nft.attributes?.find((a) => a.trait_type?.toLowerCase() === "rarity")?.value}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                {nft.tokenAddress && nft.chainId && (
+                                  <a
+                                    href={openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full"
+                                  >
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black bg-transparent"
+                                    >
+                                      <ExternalLink className="w-4 h-4 mr-2" />
+                                      View on OpenSea
+                                    </Button>
+                                  </a>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : isConnected ? (
+              <div className="text-center py-20">
+                <div className="text-gray-400 mb-4">No Prime Mates NFTs found in your wallet</div>
+                <p className="text-sm text-gray-500">
+                  Make sure you're connected to the correct wallet and have NFTs from our collections
+                </p>
+              </div>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="gesture">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                  Gesture Studio
+                </span>
+              </h2>
+              <p className="text-gray-400 mb-6">
+                Select your NFT and add gesture overlays to create unique compositions
+              </p>
+
+              {!isConnected && <ConnectWidget />}
+            </div>
+
+            {isConnected && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* NFT Selection */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-yellow-400">1. Select Your NFT</h3>
+                    {userNFTs.length === 0 ? (
+                      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                        <p className="text-gray-400">No NFTs found in your wallet</p>
+                        <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                        {userNFTs.map((nft) => (
+                          <Card
+                            key={`${nft.tokenAddress}-${nft.tokenId}`}
+                            className={`cursor-pointer transition-all duration-300 ${
+                              selectedNFT?.tokenId === nft.tokenId
+                                ? "border-yellow-500 bg-yellow-500/10"
+                                : "bg-gray-900 border-gray-800 hover:border-yellow-500"
+                            }`}
+                            onClick={() => setSelectedNFT(nft)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                                <img
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                                />
+                              </div>
+                              <h4 className="font-bold text-sm truncate">{nft.name}</h4>
+                              <p className="text-xs text-gray-400">#{nft.tokenId}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Gesture Selection */}
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-purple-400">2. Choose Gesture Overlay</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {gestureOverlays.map((gesture) => (
+                        <Card
+                          key={gesture.id}
+                          className={`cursor-pointer transition-all duration-300 ${
+                            selectedGesture === gesture.id
+                              ? "border-purple-500 bg-purple-500/10"
+                              : "bg-gray-900 border-gray-800 hover:border-purple-500"
+                          }`}
+                          onClick={() => setSelectedGesture(gesture.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                              <img
+                                src={gesture.image || "/placeholder.svg"}
+                                alt={gesture.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <h4 className="font-bold text-sm text-center">{gesture.name}</h4>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview & Actions */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-pink-400">3. Preview & Download</h3>
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                      {compositeImage ? (
+                        <div className="space-y-4">
+                          <div className="aspect-square rounded-lg overflow-hidden bg-gray-800 mx-auto max-w-sm">
+                            <img
+                              src={compositeImage || "/placeholder.svg"}
+                              alt="Composite NFT with gesture"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex gap-3">
+                            <Button
+                              onClick={downloadComposite}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                            <Button
+                              onClick={shareToTwitter}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <Share className="w-4 h-4 mr-2" />
+                              Share
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="aspect-square rounded-lg bg-gray-800 flex items-center justify-center">
+                          <div className="text-center text-gray-400">
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-purple-400" />
+                                <p>Generating preview...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p>Select an NFT and gesture to generate preview</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="art-gallery">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">
+                <span className="bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent">
+                  Art Gallery Studio
+                </span>
+              </h2>
+              <p className="text-gray-400 mb-6">Create custom phone backgrounds and Twitter banners with your NFTs</p>
+
+              {!isConnected && <ConnectWidget />}
+            </div>
+
+            {isConnected && (
+              <div className="space-y-8">
+                {/* NFT Selection */}
+                <div>
+                  <h3 className="text-xl font-bold mb-4 text-purple-400">Select Your NFT</h3>
+                  {userNFTs.length === 0 ? (
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                      <p className="text-gray-400">No NFTs found in your wallet</p>
+                      <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+                      {userNFTs.slice(0, 12).map((nft) => (
+                        <Card
+                          key={`art-${nft.tokenAddress}-${nft.tokenId}`}
+                          className={`cursor-pointer bg-gray-900 border-gray-800 hover:border-purple-500 transition-all duration-300 ${
+                            selectedArtNFT?.tokenId === nft.tokenId ? "border-purple-500 ring-2 ring-purple-500/50" : ""
+                          }`}
+                          onClick={() => setSelectedArtNFT(nft)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                              <img
+                                src={nft.image || "/placeholder.svg"}
+                                alt={nft.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                              />
+                            </div>
+                            <h4 className="font-bold text-xs truncate">{nft.name}</h4>
+                            <p className="text-xs text-gray-400">#{nft.tokenId}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* PFP Background Studio */}
+                {selectedArtNFT && (
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-cyan-400">Create Your Art</h3>
+                    <PfpBackgroundStudio
+                      imageUrl={selectedArtNFT.image || "/placeholder.svg"}
+                      name={selectedArtNFT.name}
+                    />
+                  </div>
+                )}
+
+                {!selectedArtNFT && userNFTs.length > 0 && (
+                  <Card className="bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border-purple-500/30">
+                    <CardContent className="p-6 text-center">
+                      <Palette className="w-12 h-12 mx-auto mb-4 text-purple-400" />
+                      <h4 className="text-lg font-bold text-purple-400 mb-2">Select an NFT to Get Started</h4>
+                      <p className="text-gray-300 text-sm">
+                        Choose one of your NFTs above to create custom phone backgrounds, Twitter banners, and more!
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
-  );
+  )
 }
-
-// -----------------------------
-// Usage example (drop into your Art Gallery tab):
-// import PfpBackgroundStudio from "@/packages/prime-shared/components/PfpBackgroundStudio";
-// <PfpBackgroundStudio imageUrl={selectedNFT.image} name={selectedNFT.name} />
