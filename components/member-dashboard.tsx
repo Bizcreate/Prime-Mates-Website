@@ -147,6 +147,43 @@ export function MemberDashboard() {
     try {
       const owned: NFTData[] = []
 
+      const fallbackNFTs = [
+        {
+          tokenId: "1342",
+          name: "Prime Mates Board Club #1342",
+          image: "/prime-mates-nft.jpg",
+          collection: "Prime Mates Board Club",
+          chain: "ethereum" as const,
+          tokenAddress: PMBC_ADDR,
+        },
+        {
+          tokenId: "666",
+          name: "Prime Halloween Board Club #666",
+          image: "/prime-mates-nft.jpg",
+          collection: "Prime Halloween Board Club",
+          chain: "ethereum" as const,
+          tokenAddress: HALLOWEEN_ADDR,
+        },
+        {
+          tokenId: "1111",
+          name: "Prime Mates Christmas Club #1111",
+          image: "/prime-mates-nft.jpg",
+          collection: "Prime Mates Christmas Club",
+          chain: "polygon" as const,
+          tokenAddress: CHRISTMAS_ADDR,
+        },
+        {
+          tokenId: "420",
+          name: "Prime To The Bone #420",
+          image: "/prime-mates-nft.jpg",
+          collection: "Prime To The Bone",
+          chain: "polygon" as const,
+          tokenAddress: PTTB_ADDR,
+        },
+      ]
+
+      let hasApiError = false
+
       // Fetch Prime Halloween NFTs from Ethereum
       try {
         console.log("[v0] Fetching Prime Halloween NFTs from Ethereum...")
@@ -174,6 +211,9 @@ export function MemberDashboard() {
         }
       } catch (error) {
         console.error("[v0] Error fetching Prime Halloween NFTs:", error)
+        if (error?.message?.includes("Unauthorized domain")) {
+          hasApiError = true
+        }
       }
 
       // Fetch Prime Christmas NFTs from Polygon
@@ -203,6 +243,9 @@ export function MemberDashboard() {
         }
       } catch (error) {
         console.error("[v0] Error fetching Prime Christmas NFTs:", error)
+        if (error?.message?.includes("Unauthorized domain")) {
+          hasApiError = true
+        }
       }
 
       // Fetch PMBC NFTs from Ethereum
@@ -232,6 +275,9 @@ export function MemberDashboard() {
         }
       } catch (error) {
         console.error("[v0] Error fetching PMBC NFTs:", error)
+        if (error?.message?.includes("Unauthorized domain")) {
+          hasApiError = true
+        }
       }
 
       // Fetch PTTB NFTs from Polygon
@@ -261,6 +307,9 @@ export function MemberDashboard() {
         }
       } catch (error) {
         console.error("[v0] Error fetching PTTB NFTs:", error)
+        if (error?.message?.includes("Unauthorized domain")) {
+          hasApiError = true
+        }
       }
 
       // Sort: Ethereum first, then Polygon by tokenId
@@ -272,8 +321,36 @@ export function MemberDashboard() {
       console.log("[v0] Total NFTs loaded:", owned.length)
     } catch (err) {
       console.error("[v0] loadNFTs error", err)
-      toast({ title: "Failed to load NFTs", description: String(err), variant: "destructive" })
-      setUserNFTs([])
+
+      if (err?.message?.includes("Unauthorized domain")) {
+        console.log("[v0] Domain authorization error, showing fallback NFTs")
+        setUserNFTs([
+          {
+            tokenId: "1342",
+            name: "Prime Mates Board Club #1342",
+            image: "/prime-mates-nft.jpg",
+            collection: "Prime Mates Board Club",
+            chain: "ethereum",
+            tokenAddress: PMBC_ADDR,
+          },
+          {
+            tokenId: "666",
+            name: "Prime Halloween Board Club #666",
+            image: "/prime-mates-nft.jpg",
+            collection: "Prime Halloween Board Club",
+            chain: "ethereum",
+            tokenAddress: HALLOWEEN_ADDR,
+          },
+        ])
+        toast({
+          title: "Preview Mode",
+          description: "Domain not authorized. Sample NFTs shown for preview.",
+          variant: "default",
+        })
+      } else {
+        toast({ title: "Failed to load NFTs", description: String(err), variant: "destructive" })
+        setUserNFTs([])
+      }
     } finally {
       setLoading(false)
     }
