@@ -7,12 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { User, Mail, Lock, MapPin, Wallet } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createUserWithEmailAndPassword, getAuth } from "firebase/auth"
-import { doc, setDoc, getFirestore } from "firebase/firestore"
-import firebase_app from "../firebase/config"
-
-const auth = getAuth(firebase_app)
-const db = getFirestore(firebase_app)
+import { createUserWithEmailAndPassword } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { auth, db } from "@/lib/firebaseClient"
 
 interface ProfileData {
   name: string
@@ -109,7 +106,6 @@ export function ProfileCreationModal({ walletAddress, onProfileCreated, onClose 
     try {
       console.log("[v0] Creating Firebase user account...")
 
-      // Create Firebase user account
       const userCredential = await createUserWithEmailAndPassword(auth, profileData.email, profileData.password)
       const firebaseUser = userCredential.user
 
