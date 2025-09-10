@@ -26,12 +26,18 @@ export function getFirebaseApp() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig)
 }
 
-export function getFirebaseAuth() {
-  const app = getFirebaseApp()
-  return getAuth(app)
+let auth: ReturnType<typeof getAuth> | null = null
+let db: ReturnType<typeof getFirestore> | null = null
+
+// Initialize auth and db only in browser
+if (typeof window !== "undefined") {
+  try {
+    const app = getFirebaseApp()
+    auth = getAuth(app)
+    db = getFirestore(app)
+  } catch (error) {
+    console.error("[v0] Firebase initialization error:", error)
+  }
 }
 
-export function getFirebaseFirestore() {
-  const app = getFirebaseApp()
-  return getFirestore(app)
-}
+export { auth, db }
