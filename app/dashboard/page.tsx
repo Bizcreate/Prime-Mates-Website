@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { MemberDashboard } from "@/components/member-dashboard"
+import DashboardClient from "./DashboardClient"
 
 export const metadata: Metadata = {
   title: "Member Dashboard - Prime Mates Board Club",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function DashboardPage() {
-  return <MemberDashboard />
+  return <DashboardClient />
 }
