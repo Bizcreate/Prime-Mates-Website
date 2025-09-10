@@ -13,21 +13,20 @@ import { Insight } from "thirdweb"
 import { ethereum, polygon } from "thirdweb/chains"
 import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client"
 import { ConnectWidget } from "@/components/ConnectWidget"
-import PfpBackgroundStudio from "@/components/PfpBackgroundStudio"
 
 const collections = [
   {
     name: "Prime Mates Board Club",
-    address: "0x7d8820fa92eb1584636f4f5b8515b5bd5d20e1a0",
-    totalSupply: 10000,
-    theme: "blue",
+    address: "0x12662b6a2a424a0090b7d09401fb775a9b968898",
+    totalSupply: 2222,
+    theme: "gold",
     chainId: 1,
   },
   {
     name: "Prime To The Bone",
-    address: "0x9c57d0278199c931cf149cc769f37bb7847091e7",
-    totalSupply: 6666,
-    theme: "purple",
+    address: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75",
+    totalSupply: 999,
+    theme: "red",
     chainId: 137,
   },
   {
@@ -38,9 +37,9 @@ const collections = [
     chainId: 1,
   },
   {
-    name: "Prime Christmas",
-    address: "0x123456789abcdef123456789abcdef1234567890",
-    totalSupply: 1000,
+    name: "Prime Mates Christmas Club",
+    address: "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf",
+    totalSupply: 1111,
     theme: "green",
     chainId: 137,
   },
@@ -96,10 +95,6 @@ function themeGradient(theme: string) {
       return "from-orange-500 to-orange-600"
     case "green":
       return "from-green-500 to-green-600"
-    case "blue":
-      return "from-blue-500 to-blue-600"
-    case "purple":
-      return "from-purple-500 to-purple-600"
     default:
       return "from-yellow-500 to-yellow-600"
   }
@@ -109,8 +104,6 @@ export default function GalleryPage() {
   const account = useActiveAccount()
   const walletAddress = account?.address
   const isConnected = !!account
-
-  console.log("[v0] Gallery - Wallet connection status:", { isConnected, walletAddress, account })
 
   const [activeTab, setActiveTab] = useState("collections")
 
@@ -134,8 +127,6 @@ export default function GalleryPage() {
   const [selectedGesture, setSelectedGesture] = useState<string>("")
   const [compositeImage, setCompositeImage] = useState<string>("")
   const [isGenerating, setIsGenerating] = useState(false)
-
-  const [selectedArtNFT, setSelectedArtNFT] = useState<any>(null)
 
   const collectionByAddr = useMemo(
     () => Object.fromEntries(collections.map((c) => [c.address.toLowerCase(), { name: c.name, chainId: c.chainId }])),
@@ -203,21 +194,11 @@ export default function GalleryPage() {
   }
 
   async function loadCollectionNFTs(reset = false) {
-    console.log("[v0] loadCollectionNFTs called:", { reset, selectedCollection: selectedCollection.name, page })
-
     setLoading(true)
     setError("")
     try {
       const usePage = reset ? 1 : page
       const chain = chainFromId(selectedCollection.chainId)
-
-      console.log("[v0] Attempting to load NFTs:", {
-        collection: selectedCollection.name,
-        address: selectedCollection.address,
-        chainId: selectedCollection.chainId,
-        page: usePage,
-        perPage,
-      })
 
       const list = await Insight.getContractNFTs({
         client: thirdwebClient,
@@ -227,8 +208,6 @@ export default function GalleryPage() {
         includeOwners: true,
         queryOptions: { resolve_metadata_links: "true", limit: perPage, page: usePage },
       })
-
-      console.log("[v0] NFTs loaded successfully:", { count: list.length, collection: selectedCollection.name })
 
       const mapped: NFTData[] = list.map((n) => ({
         tokenId: n.id.toString(),
@@ -246,59 +225,26 @@ export default function GalleryPage() {
       setHasMore(mapped.length === perPage)
       if (reset) setPage(1)
     } catch (err) {
-      console.error("[v0] loadCollectionNFTs error:", err)
-
-      if (err?.message?.includes("Unauthorized domain") || err?.message?.includes("401")) {
-        console.log("[v0] Domain authorization error - showing placeholder NFTs")
+      console.error("[gallery] loadCollectionNFTs error", err)
+      if (err?.message?.includes("Unauthorized domain")) {
         setError("Preview domain not authorized. Collections will be available after deployment.")
-
-        // Always show placeholder NFTs when API fails
-        const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => {
-          const tokenId = i + 1
-          return {
-            tokenId: tokenId.toString(),
-            name: `${selectedCollection.name} #${tokenId}`,
-            image: selectedCollection.name.includes("Halloween")
-              ? "/prime-halloween-nft.jpg"
-              : selectedCollection.name.includes("Christmas")
-                ? "/prime-christmas-nft.jpg"
-                : selectedCollection.name.includes("Bone")
-                  ? "/prime-bone-nft.jpg"
-                  : "/prime-mates-nft.jpg",
-            description: `Preview of ${selectedCollection.name} collection - Token #${tokenId}`,
-            attributes: [
-              { trait_type: "Status", value: "Preview Mode" },
-              { trait_type: "Collection", value: selectedCollection.name },
-            ],
-            owner: "Preview Mode",
+        if (reset) {
+          const placeholderNFTs: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
+            tokenId: (i + 1).toString(),
+            name: `${selectedCollection.name} #${i + 1}`,
+            image: "/prime-mates-nft.jpg",
+            description: `Preview of ${selectedCollection.name} collection`,
+            attributes: [],
+            owner: "",
             collection: selectedCollection.name,
             tokenAddress: selectedCollection.address,
             chainId: selectedCollection.chainId,
-          }
-        })
-
-        console.log("[v0] Setting placeholder NFTs:", placeholderNFTs.length)
-        setNfts(placeholderNFTs)
-        setHasMore(false)
+          }))
+          setNfts(placeholderNFTs)
+        }
       } else {
-        console.log("[v0] Other error - showing generic placeholders")
-        setError("Failed to load NFTs. Showing preview mode.")
-
-        // Show generic placeholders for other errors too
-        const genericPlaceholders: NFTData[] = Array.from({ length: 12 }, (_, i) => ({
-          tokenId: (i + 1).toString(),
-          name: `${selectedCollection.name} #${i + 1}`,
-          image: "/prime-mates-nft.jpg",
-          description: `${selectedCollection.name} NFT #${i + 1}`,
-          attributes: [{ trait_type: "Status", value: "Loading Error" }],
-          owner: "",
-          collection: selectedCollection.name,
-          tokenAddress: selectedCollection.address,
-          chainId: selectedCollection.chainId,
-        }))
-
-        setNfts(genericPlaceholders)
-        setHasMore(false)
+        setError("Failed to load NFTs. Please try again.")
+        if (reset) setNfts([])
       }
     } finally {
       setLoading(false)
@@ -426,22 +372,17 @@ export default function GalleryPage() {
   }, [selectedNFT, selectedGesture, activeTab])
 
   useEffect(() => {
-    console.log("[v0] Collections tab effect triggered:", { activeTab, selectedCollection: selectedCollection.name })
-
     if (activeTab === "collections") {
       setSearchedNFT(null)
       setNfts([])
       setPage(1)
       setError("")
       setHasMore(true)
-
-      console.log("[v0] Loading collection NFTs for:", selectedCollection.name)
       loadCollectionNFTs(true)
     }
   }, [selectedCollection, activeTab])
 
   useEffect(() => {
-    console.log("[v0] Wallet connection effect triggered:", { isConnected, walletAddress })
     loadUserNFTs()
   }, [isConnected, walletAddress])
 
@@ -1001,68 +942,106 @@ export default function GalleryPage() {
             </div>
 
             {isConnected && (
-              <div className="space-y-8">
-                {/* NFT Selection */}
-                <div>
-                  <h3 className="text-xl font-bold mb-4 text-purple-400">Select Your NFT</h3>
-                  {userNFTs.length === 0 ? (
-                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
-                      <p className="text-gray-400">No NFTs found in your wallet</p>
-                      <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                      </Button>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Template Selection */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-blue-400">1. Choose Template</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Card className="cursor-pointer bg-gray-900 border-gray-800 hover:border-blue-500 transition-all duration-300">
+                        <CardContent className="p-4 text-center">
+                          <div className="aspect-[9/16] bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg mb-3 flex items-center justify-center border-2 border-blue-500/30">
+                            <div className="text-blue-400">📱</div>
+                          </div>
+                          <h4 className="font-bold text-blue-400">Phone Background</h4>
+                          <p className="text-xs text-gray-400">1080x1920</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="cursor-pointer bg-gray-900 border-gray-800 hover:border-cyan-500 transition-all duration-300">
+                        <CardContent className="p-4 text-center">
+                          <div className="aspect-[3/1] bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg mb-3 flex items-center justify-center border-2 border-cyan-500/30">
+                            <div className="text-cyan-400">🐦</div>
+                          </div>
+                          <h4 className="font-bold text-cyan-400">Twitter Banner</h4>
+                          <p className="text-xs text-gray-400">1500x500</p>
+                        </CardContent>
+                      </Card>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-                      {userNFTs.slice(0, 12).map((nft) => (
-                        <Card
-                          key={`art-${nft.tokenAddress}-${nft.tokenId}`}
-                          className={`cursor-pointer bg-gray-900 border-gray-800 hover:border-purple-500 transition-all duration-300 ${
-                            selectedArtNFT?.tokenId === nft.tokenId ? "border-purple-500 ring-2 ring-purple-500/50" : ""
-                          }`}
-                          onClick={() => setSelectedArtNFT(nft)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
-                              <img
-                                src={nft.image || "/placeholder.svg"}
-                                alt={nft.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
-                              />
-                            </div>
-                            <h4 className="font-bold text-xs truncate">{nft.name}</h4>
-                            <p className="text-xs text-gray-400">#{nft.tokenId}</p>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
+                  </div>
+
+                  {/* NFT Selection for Art Gallery */}
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 text-purple-400">2. Select Your NFT</h3>
+                    {userNFTs.length === 0 ? (
+                      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+                        <p className="text-gray-400">No NFTs found in your wallet</p>
+                        <Button onClick={loadUserNFTs} className="mt-4 bg-transparent" variant="outline">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-64 overflow-y-auto">
+                        {userNFTs.slice(0, 6).map((nft) => (
+                          <Card
+                            key={`art-${nft.tokenAddress}-${nft.tokenId}`}
+                            className="cursor-pointer bg-gray-900 border-gray-800 hover:border-purple-500 transition-all duration-300"
+                          >
+                            <CardContent className="p-3">
+                              <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
+                                <img
+                                  src={nft.image || "/placeholder.svg"}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                                />
+                              </div>
+                              <h4 className="font-bold text-xs truncate">{nft.name}</h4>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* PFP Background Studio */}
-                {selectedArtNFT && (
+                {/* Preview & Actions */}
+                <div className="space-y-6">
                   <div>
-                    <h3 className="text-xl font-bold mb-4 text-cyan-400">Create Your Art</h3>
-                    <PfpBackgroundStudio
-                      imageUrl={selectedArtNFT.image || "/placeholder.svg"}
-                      name={selectedArtNFT.name}
-                    />
-                  </div>
-                )}
+                    <h3 className="text-xl font-bold mb-4 text-cyan-400">3. Preview & Download</h3>
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                      <div className="aspect-[3/1] rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/20 flex items-center justify-center mb-4">
+                        <div className="text-center text-gray-400">
+                          <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>Select template and NFT to generate preview</p>
+                        </div>
+                      </div>
 
-                {!selectedArtNFT && userNFTs.length > 0 && (
-                  <Card className="bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border-purple-500/30">
+                      <div className="flex gap-3">
+                        <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" disabled>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                        <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" disabled>
+                          <Share className="w-4 h-4 mr-2" />
+                          Share
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coming Soon Notice */}
+                  <Card className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-500/30">
                     <CardContent className="p-6 text-center">
-                      <Palette className="w-12 h-12 mx-auto mb-4 text-purple-400" />
-                      <h4 className="text-lg font-bold text-purple-400 mb-2">Select an NFT to Get Started</h4>
+                      <h4 className="text-lg font-bold text-blue-400 mb-2">🎨 Coming Soon</h4>
                       <p className="text-gray-300 text-sm">
-                        Choose one of your NFTs above to create custom phone backgrounds, Twitter banners, and more!
+                        Full Art Gallery functionality with custom templates, layouts, and social media formats will be
+                        available soon!
                       </p>
                     </CardContent>
                   </Card>
-                )}
+                </div>
               </div>
             )}
           </TabsContent>
