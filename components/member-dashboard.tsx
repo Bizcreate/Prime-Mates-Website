@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Wallet, Star, Package, User, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import StatsCard from "./StatsCard"
-import { ProfileCreationModal } from "./ProfileCreationModal"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
@@ -16,6 +16,24 @@ import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client"
 
 import { stakeNFT, unstakeNFT, getStakedNFTs } from "../lib/staking"
+
+const ProfileCreationModal = dynamic(
+  () => import("./ProfileCreationModal").then((mod) => ({ default: mod.ProfileCreationModal })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Card className="bg-gray-900 border-yellow-400/30 max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-white mb-4">Loading Profile Setup...</h2>
+            <p className="text-gray-400">Preparing your Prime Mates experience</p>
+          </CardContent>
+        </Card>
+      </div>
+    ),
+  },
+)
 
 // --- Types ------------------------------------------------------------------
 interface NFTData {
