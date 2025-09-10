@@ -1,7 +1,7 @@
 /**
  * Firebase Web SDK initialiser for CLIENT ONLY.
  * - Guards against SSR/prerender execution to prevent auth/invalid-api-key at build time.
- * - Reads NEXT_PUBLIC_* env vars that must be set in Vercel (Production & Preview).
+ * - Uses hardcoded Firebase config for Prime Mates BC project.
  */
 "use client"
 
@@ -10,12 +10,13 @@ import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCfmmgC2wEDAv6k3dptl9lzsKgyMeoLKF4",
+  authDomain: "primematebc.firebaseapp.com",
+  projectId: "primematebc",
+  storageBucket: "primematebc.firebasestorage.app",
+  messagingSenderId: "910094315394",
+  appId: "1:910094315394:web:cb45e2788b5f0a3ac1299b",
+  measurementId: "G-PLRM0FEWT4",
 }
 
 export function getFirebaseApp() {
