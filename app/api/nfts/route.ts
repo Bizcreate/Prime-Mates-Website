@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getContract, getNFTs } from "thirdweb"
+import { getContract } from "thirdweb"
+import { getNFTs } from "thirdweb/extensions/erc721"
 import { ethereum, polygon } from "thirdweb/chains"
 import { client } from "@/lib/client"
 
