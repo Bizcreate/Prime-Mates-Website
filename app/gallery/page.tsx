@@ -137,19 +137,19 @@ export default function GalleryPage() {
   const gestureOverlays = [
     { id: "gm-coffee", name: "GM Coffee", image: "/gestures/gm-coffee.png" },
     { id: "1-50 Board", name: "1-50 Board", image: "/gestures/1-50 Board.png" },
-    { id: “long Board", name: "Long Board.png", image: "/gestures/Long Board.png" },
-    { id: “middle Finger", name: "Middle Finger", image: "/gestures/Middle Finger.png" },
-    { id: “mog Goggles", name: "Mog Goggles.", image: "/gestures/Mog Goggles.png" },
-    { id: "Phone Hand", name: "Phone Hand", image: "/gestures/Phone Hand.png" },
-    { id: “shaka Hand", name: "Shaka Hand", image: "/gestures/Shaka Hand.png" },
-    { id: "PMBC Fistbump", name: "PMBC Fistbump", image: "/gestures/PMBC Fistbump.png" },
+    { id: “long_Board", name: "Long Board.png", image: "/gestures/LongBoard.png" },
+    { id: “middle_Finger", name: "Middle_Finger", image: "/gestures/MiddleFinger.png" },
+    { id: “mog_Goggles", name: "Mog_Goggles.", image: "/gestures/MogGoggles.png" },
+    { id: "Phone_Hand", name: "Phone_Hand", image: "/gestures/PhoneHand.png" },
+    { id: “shaka_Hand", name: "Shaka_Hand", image: "/gestures/ShakaHand.png" },
+    { id: "PMBC_Fistbump", name: "PMBC_Fistbump", image: "/gestures/PMBCFistbump.png" },
     { id: "Skateboard", name: "Skateboard", image: "/gestures/Skateboard.png" },
     { id: "surfboard", name: "Surfboard", image: "/gestures/Surfboard.png" },
     { id: "Surfwax", name: "Surfwax", image: "/gestures/Surfwax.png" },
     { id: "Skatewheel", name: "Skatewheel", image: "/gestures/Skatewheel.png" },
     { id: "taco", name: "Taco", image: "/gestures/Taco.png" },
-    { id: "Thumbs Up", name: "Thumbs Up", image: "/gestures/Thumbs Up.png" },
-    { id: "Wax surf", name: "Wax surf.png", image: "/gestures/Wax surf.png" },
+    { id: "Thumbs_Up", name: "Thumbs_Up", image: "/gestures/ThumbsUp.png" },
+    { id: "Wax_surf", name: "Wax_surf.png", image: "/gestures/Waxsurf.png" },
   ]
 
   async function loadUserNFTs() {
