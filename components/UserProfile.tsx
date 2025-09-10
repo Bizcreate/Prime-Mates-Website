@@ -3,11 +3,15 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation" // Fixed Next.js router import for app router
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { useToast } from "@/hooks/use-toast" // Using existing toast hook instead of react-hot-toast
-import { FaEye, FaEyeSlash, FaTwitter } from "react-icons/fa"
+import { useToast } from "@/hooks/use-toast"
+import { FaEye, FaEyeSlash, FaTwitter, FaPlus, FaTrash } from "react-icons/fa"
 import { useActiveAccount } from "thirdweb/react"
+import { auth, db } from "@/lib/firebaseClient"
+import { doc, getDoc, setDoc, updateDoc, onAuthStateChanged } from "firebase/firestore"
+import { ConnectButton } from "thirdweb/react"
+import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client"
 
 const formatNumber = (num: number) => {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + "M"
@@ -21,40 +25,40 @@ const Spinner = () => (
   </div>
 )
 
+interface UserData {
+  balance: number
+  energy: number
+  shakaBalance: number
+  level: {
+    name: string
+    currentProgress: number
+    imgUrl: string
+    nextLevel: {
+      name: string
+      remainingBalance: number
+      imgUrl: string
+    }
+  }
+  fullName: string
+  selectedCharacter: {
+    avatar: string
+    twitter: string
+  }
+  connectedWallets: string[]
+  claimedMilestones: string[]
+  uid?: string
+  email?: string
+}
+
 const UserProfile = () => {
   const router = useRouter()
   const { toast } = useToast()
   const account = useActiveAccount()
 
-  const mockUserData = {
-    balance: 83612,
-    energy: 444,
-    tapBalance: 3175,
-    level: {
-      name: "Bronze",
-      currentProgress: 6,
-      imgUrl: "/placeholder.svg",
-      nextLevel: {
-        name: "Silver",
-        remainingBalance: 46825,
-        imgUrl: "/placeholder.svg",
-      },
-    },
-    fullName: "Prime Mates Member",
-    selectedCharacter: {
-      avatar: "/placeholder.svg",
-      twitter: "",
-    },
-    selectedExchange: {
-      id: "selectex",
-      name: "No Exchange",
-      icon: "/placeholder.svg",
-    },
-    claimedMilestones: ["Bronze"],
-  }
-
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [firebaseUser, setFirebaseUser] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [newName, setNewName] = useState(mockUserData.fullName)
+  const [newName, setNewName] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -68,24 +72,129 @@ const UserProfile = () => {
     isEditing: false,
     username: "",
   })
+  const [showAddWallet, setShowAddWallet] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user)
+      if (user && account) {
+        loadUserData(user.uid)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [account])
+
+  const loadUserData = async (uid: string) => {
+    try {
+      setIsLoading(true)
+      const userDoc = await getDoc(doc(db, "users", uid))
+
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData
+        setUserData(data)
+        setNewName(data.fullName || "Prime Mates Member")
+        setTwitterSection((prev) => ({
+          ...prev,
+          username: data.selectedCharacter?.twitter?.replace("https://twitter.com/", "") || "",
+        }))
+        setImagePreview(data.selectedCharacter?.avatar || null)
+      } else {
+        const defaultData: UserData = {
+          balance: 0,
+          energy: 100,
+          shakaBalance: 0,
+          level: {
+            name: "Bronze",
+            currentProgress: 0,
+            imgUrl: "/placeholder.svg",
+            nextLevel: {
+              name: "Silver",
+              remainingBalance: 50000,
+              imgUrl: "/placeholder.svg",
+            },
+          },
+          fullName: "Prime Mates Member",
+          selectedCharacter: {
+            avatar: "/placeholder.svg",
+            twitter: "",
+          },
+          connectedWallets: account ? [account.address] : [],
+          claimedMilestones: ["Bronze"],
+          uid: uid,
+          email: firebaseUser?.email || "",
+        }
+
+        await setDoc(doc(db, "users", uid), defaultData)
+        setUserData(defaultData)
+        setNewName(defaultData.fullName)
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user data",
+        variant: "destructive",
+      })
+    } finally {
       setIsLoading(false)
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
-    if (mockUserData.selectedCharacter?.twitter) {
-      const twitterUrl = mockUserData.selectedCharacter.twitter
-      const username = twitterUrl.replace("https://twitter.com/", "")
-      setTwitterSection((prev) => ({
-        ...prev,
-        username: username,
-      }))
     }
-  }, [])
+  }
+
+  const handleAddWallet = async (newWalletAddress: string) => {
+    if (!firebaseUser || !userData) return
+
+    try {
+      const updatedWallets = [...(userData.connectedWallets || []), newWalletAddress]
+      const updatedData = { ...userData, connectedWallets: updatedWallets }
+
+      await updateDoc(doc(db, "users", firebaseUser.uid), {
+        connectedWallets: updatedWallets,
+      })
+
+      setUserData(updatedData)
+      setShowAddWallet(false)
+
+      toast({
+        title: "Success",
+        description: "Wallet connected successfully!",
+      })
+    } catch (error) {
+      console.error("Error adding wallet:", error)
+      toast({
+        title: "Error",
+        description: "Failed to connect wallet",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRemoveWallet = async (walletAddress: string) => {
+    if (!firebaseUser || !userData) return
+
+    try {
+      const updatedWallets = userData.connectedWallets.filter((w) => w !== walletAddress)
+      const updatedData = { ...userData, connectedWallets: updatedWallets }
+
+      await updateDoc(doc(db, "users", firebaseUser.uid), {
+        connectedWallets: updatedWallets,
+      })
+
+      setUserData(updatedData)
+
+      toast({
+        title: "Success",
+        description: "Wallet removed successfully!",
+      })
+    } catch (error) {
+      console.error("Error removing wallet:", error)
+      toast({
+        title: "Error",
+        description: "Failed to remove wallet",
+        variant: "destructive",
+      })
+    }
+  }
 
   const handleImageClick = () => {
     fileInputRef.current?.click()
@@ -120,53 +229,8 @@ const UserProfile = () => {
     }
   }
 
-  const handleTwitterSubmit = async () => {
-    const username = twitterSection.username.startsWith("@")
-      ? twitterSection.username.substring(1)
-      : twitterSection.username
-
-    if (username.trim() === "") {
-      toast({
-        title: "Error",
-        description: "Twitter username cannot be empty",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!/^[A-Za-z0-9_]{1,15}$/.test(username)) {
-      toast({
-        title: "Error",
-        description: "Invalid Twitter username format",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUploading(true)
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setTwitterSection({
-        ...twitterSection,
-        isEditing: false,
-      })
-      toast({
-        title: "Success",
-        description: "Twitter profile linked successfully!",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update Twitter profile",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
   const handleNameSubmit = async () => {
-    if (newName.trim() === "") {
+    if (newName.trim() === "" || !firebaseUser || !userData) {
       toast({
         title: "Error",
         description: "Name cannot be empty",
@@ -177,16 +241,71 @@ const UserProfile = () => {
 
     setIsUploading(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await updateDoc(doc(db, "users", firebaseUser.uid), {
+        fullName: newName.trim(),
+      })
+
+      setUserData({ ...userData, fullName: newName.trim() })
       setIsEditing(false)
       toast({
         title: "Success",
         description: "Name updated successfully!",
       })
     } catch (error) {
+      console.error("Error updating name:", error)
       toast({
         title: "Error",
         description: "Failed to update name",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleTwitterSubmit = async () => {
+    if (!firebaseUser || !userData) return
+
+    const username = twitterSection.username.startsWith("@")
+      ? twitterSection.username.substring(1)
+      : twitterSection.username
+
+    if (username.trim() !== "" && !/^[A-Za-z0-9_]{1,15}$/.test(username)) {
+      toast({
+        title: "Error",
+        description: "Invalid Twitter username format",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      await updateDoc(doc(db, "users", firebaseUser.uid), {
+        "selectedCharacter.twitter": username ? `https://twitter.com/${username}` : "",
+      })
+
+      setUserData({
+        ...userData,
+        selectedCharacter: {
+          ...userData.selectedCharacter,
+          twitter: username ? `https://twitter.com/${username}` : "",
+        },
+      })
+
+      setTwitterSection({
+        ...twitterSection,
+        isEditing: false,
+      })
+      toast({
+        title: "Success",
+        description: "Twitter profile updated successfully!",
+      })
+    } catch (error) {
+      console.error("Error updating Twitter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update Twitter profile",
         variant: "destructive",
       })
     } finally {
@@ -226,7 +345,7 @@ const UserProfile = () => {
     return <Spinner />
   }
 
-  if (!account) {
+  if (!account || !firebaseUser || !userData) {
     router.push("/dashboard")
     return <Spinner />
   }
@@ -243,7 +362,7 @@ const UserProfile = () => {
         <div className="relative">
           <motion.div className="relative" whileHover={{ scale: 1.05 }}>
             <img
-              src={imagePreview || mockUserData.selectedCharacter?.avatar || "/placeholder.svg"}
+              src={imagePreview || userData.selectedCharacter?.avatar || "/placeholder.svg"}
               alt="Profile Avatar"
               className={`w-24 h-24 rounded-full mr-6 border-2 border-yellow-400 cursor-pointer ${
                 isUploading ? "opacity-50" : ""
@@ -299,7 +418,7 @@ const UserProfile = () => {
                 <button
                   onClick={() => {
                     setIsEditing(false)
-                    setNewName(mockUserData.fullName)
+                    setNewName(userData.fullName)
                   }}
                   disabled={isUploading}
                   className="text-sm px-3 py-1 bg-slate-600 text-gray-300 rounded hover:bg-opacity-80 transition-colors"
@@ -310,7 +429,7 @@ const UserProfile = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-white mb-1">{newName}</h1>
+              <h1 className="text-2xl font-bold text-white mb-1">{userData.fullName}</h1>
               <button
                 onClick={() => setIsEditing(true)}
                 disabled={isUploading}
@@ -323,8 +442,8 @@ const UserProfile = () => {
             </div>
           )}
           <div className="flex items-center">
-            <img src={mockUserData.level?.imgUrl || "/placeholder.svg"} alt="Level" className="w-5 h-5 mr-2" />
-            <span className="text-yellow-400">{mockUserData.level?.name} Level</span>
+            <img src={userData.level?.imgUrl || "/placeholder.svg"} alt="Level" className="w-5 h-5 mr-2" />
+            <span className="text-yellow-400">{userData.level?.name} Level</span>
           </div>
         </div>
       </motion.div>
@@ -332,16 +451,16 @@ const UserProfile = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         {[
-          { title: "Balance", value: formatNumber(mockUserData.balance), icon: "💰" },
-          { title: "Energy", value: mockUserData.energy, icon: "⚡" },
+          { title: "Balance", value: formatNumber(userData.balance), icon: "💰" },
+          { title: "Energy", value: userData.energy, icon: "⚡" },
           {
             title: "SHAKA Balance",
-            value: formatNumber(mockUserData.tapBalance),
+            value: formatNumber(userData.shakaBalance),
             icon: "💲",
           },
           {
             title: "Level Progress",
-            value: `${Math.round(mockUserData.level?.currentProgress || 0)}%`,
+            value: `${Math.round(userData.level?.currentProgress || 0)}%`,
             icon: "📈",
           },
         ].map((stat, index) => (
@@ -362,15 +481,55 @@ const UserProfile = () => {
         ))}
       </div>
 
-      {/* Connected Wallet */}
       <motion.div className="mb-8 p-6 bg-slate-800 rounded-xl border border-slate-700" {...fadeInUp}>
-        <h2 className="font-semibold text-gray-300 mb-4">Connected Wallet</h2>
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-yellow-400 rounded-full mr-3 flex items-center justify-center">
-            <span className="text-black font-bold text-sm">W</span>
-          </div>
-          <p className="text-white font-mono">{account?.address}</p>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-semibold text-gray-300">Connected Wallets</h2>
+          <button
+            onClick={() => setShowAddWallet(!showAddWallet)}
+            className="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+          >
+            <FaPlus className="w-4 h-4" />
+            Add Wallet
+          </button>
         </div>
+
+        <div className="space-y-3">
+          {userData.connectedWallets?.map((walletAddress, index) => (
+            <div key={walletAddress} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-yellow-400 rounded-full mr-3 flex items-center justify-center">
+                  <span className="text-black font-bold text-sm">W{index + 1}</span>
+                </div>
+                <p className="text-white font-mono text-sm">{walletAddress}</p>
+                {walletAddress === account?.address && (
+                  <span className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded">Active</span>
+                )}
+              </div>
+              {userData.connectedWallets.length > 1 && (
+                <button
+                  onClick={() => handleRemoveWallet(walletAddress)}
+                  className="text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <FaTrash className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {showAddWallet && (
+          <div className="mt-4 p-4 bg-slate-700 rounded-lg">
+            <p className="text-gray-300 mb-3">Connect a new wallet to your profile:</p>
+            <ConnectButton
+              client={thirdwebClient}
+              onConnect={(wallet) => {
+                if (wallet.getAccount()?.address) {
+                  handleAddWallet(wallet.getAccount()!.address)
+                }
+              }}
+            />
+          </div>
+        )}
       </motion.div>
 
       {/* Twitter Profile Section */}
