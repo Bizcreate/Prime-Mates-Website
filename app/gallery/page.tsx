@@ -144,6 +144,15 @@ export default function GalleryPage() {
     { id: "thumbs-up", name: "Thumbs Up", image: "/gestures/ThumbsUp.png" },
     { id: "wax-surf", name: "Wax Surf", image: "/gestures/Waxsurf.png" },
     { id: "PhoneHandGesture", name: "Gesturescreen", image: "/gestures/PhoneHandGesture.png" },
+     { id: "Board", name: "Board", image: "/gestures/Board.png" },
+     { id: "Board1", name: "Board1", image: "/gestures/Board1.png" },
+     { id: "Board2", name: "Board2", image: "/gestures/Board2.png" },
+     { id: "Board3", name: "Board3", image: "/gestures/Board3.png" },
+     { id: "Board4", name: "Board4", image: "/gestures/Board4.png" },
+     { id: "Board5", name: "Board5", image: "/gestures/Board5.png" },
+     { id: "Board6", name: "Board6", image: "/gestures/Board6.png" },
+     { id: "Board7", name: "Board7", image: "/gestures/Board7.png" },
+     { id: "Board8", name: "Board8", image: "/gestures/Board8.png" },
   ]
 
   async function loadUserNFTs() {
