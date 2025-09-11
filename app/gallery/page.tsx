@@ -143,6 +143,7 @@ export default function GalleryPage() {
     { id: "surfwax", name: "Surfwax", image: "/gestures/Surfwax.png" },
     { id: "thumbs-up", name: "Thumbs Up", image: "/gestures/ThumbsUp.png" },
     { id: "wax-surf", name: "Wax Surf", image: "/gestures/Waxsurf.png" },
+    { id: "PhoneHandGesture", name: "Gesturescreen", image: "/gestures/PhoneHandGesture.png" },
   ]
 
   async function loadUserNFTs() {
