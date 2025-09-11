@@ -153,6 +153,17 @@ export default function GalleryPage() {
      { id: "Board6", name: "Board6", image: "/gestures/Board6.png" },
      { id: "Board7", name: "Board7", image: "/gestures/Board7.png" },
      { id: "Board8", name: "Board8", image: "/gestures/Board8.png" },
+     { id: "Board9", name: "Board9", image: "/gestures/Board9.png" },
+     { id: "Board10", name: "Board10", image: "/gestures/Board10.png" },
+     { id: "Board11", name: "Board11", image: "/gestures/Board11.png" },
+     { id: "Board12", name: "Board12", image: "/gestures/Board12.png" },
+     { id: "Board13", name: "Board13", image: "/gestures/Board13.png" },
+     { id: "Board14", name: "Board14", image: "/gestures/Board14.png" },
+     { id: "Board15", name: "Board15", image: "/gestures/Board15.png" },
+     { id: "Board16", name: "Board16", image: "/gestures/Board16.png" },
+     { id: "Board17", name: "Board17", image: "/gestures/Board17.png" },
+     { id: "Board18", name: "Board18", image: "/gestures/Board18.png" },
+     { id: "Board19", name: "Board19", image: "/gestures/Board19.png" },
   ]
 
   async function loadUserNFTs() {
