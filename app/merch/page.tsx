@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Download, ImagePlus, Layers, Trash2, Upload, Wand2, Loader2, Scissors } from "lucide-react"
+export const dynamic = "force-dynamic";
 
 /* ------------------------------ Types/Models ------------------------------ */
 

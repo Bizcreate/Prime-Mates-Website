@@ -14,26 +14,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import * as Lucide from "lucide-react";
-import {
-  Search,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-  Download,
-  Share,
-  Palette,
-  Wand2,
-  AlertCircle,
-  Upload,
-  Brush,
-  Square,
-  Circle as CircleIcon,
-  Layers,
-  Copy,
-  Trash2,
-  // ⛔️ Do NOT import EyeDropper/Pipette as named icons here (version differences)
-} from "lucide-react";
+- import * as Lucide from "lucide-react";
+  import {
+    Search,
+    ExternalLink,
+    Loader2,
+    RefreshCw,
+    Download,
+    Share,
+    Palette,
+    Wand2,
+    AlertCircle,
+    Upload,
+    Brush,
+    Square,
+    Circle as CircleIcon,
+    Layers,
+    Copy,
+    Trash2,
++   Droplet,
+  } from "lucide-react";
+
+- // Works with any lucide version (avoids ReferenceError: Pipette/EyeDropper not defined)
+- const EyeDropperIcon: any =
+-   (Lucide as any).Pipette ??
+-   (Lucide as any).EyeDropper ??
+-   (Lucide as any).Droplet ??
+-   (() => null);
++ // Safe fallback: use Droplet as the picker icon
++ const EyeDropperIcon: any = Droplet;
+
 
 // Works with any lucide version (avoids ReferenceError: Pipette/EyeDropper not defined)
 const EyeDropperIcon: any =

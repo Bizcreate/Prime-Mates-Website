@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import StatsCard from "./StatsCard"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { onAuthStateChanged } from "firebase/auth"
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient"
 
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
