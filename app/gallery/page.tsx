@@ -14,46 +14,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-- import * as Lucide from "lucide-react";
-  import {
-    Search,
-    ExternalLink,
-    Loader2,
-    RefreshCw,
-    Download,
-    Share,
-    Palette,
-    Wand2,
-    AlertCircle,
-    Upload,
-    Brush,
-    Square,
-    Circle as CircleIcon,
-    Layers,
-    Copy,
-    Trash2,
-+   Droplet,
-  } from "lucide-react";
+import {
+  Search,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Download,
+  Share,
+  Palette,
+  Wand2,
+  AlertCircle,
+  Upload,
+  Brush,
+  Square,
+  Circle as CircleIcon,
+  Layers,
+  Copy,
+  Trash2,
+-  // ⛔️ Do NOT import EyeDropper/Pipette as named icons here (version differences)
++  // Use Droplet as the eyedropper icon to avoid version issues
++  Droplet as EyeDropperIcon,
+} from "lucide-react";
 
-- // Works with any lucide version (avoids ReferenceError: Pipette/EyeDropper not defined)
-- const EyeDropperIcon: any =
--   (Lucide as any).Pipette ??
--   (Lucide as any).EyeDropper ??
--   (Lucide as any).Droplet ??
--   (() => null);
-+ // Safe fallback: use Droplet as the picker icon
-+ const EyeDropperIcon: any = Droplet;
-
-
-// Works with any lucide version (avoids ReferenceError: Pipette/EyeDropper not defined)
-const EyeDropperIcon: any =
-  // newest packages
-  (Lucide as any).Pipette ??
-  // some versions
-  (Lucide as any).EyeDropper ??
-  // minimal fallback
-  (Lucide as any).Droplet ??
-  (() => null);
 
 import { useActiveAccount } from "thirdweb/react";
 import { Insight } from "thirdweb";
@@ -1250,8 +1232,7 @@ export default function GalleryPage() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                         {userNFTs.map((nft) => (
                           <Card
-                            key={`${nft.tokenAddress}-${nft.tokenId}`}
-                            className={`cursor-pointer transition-all duration-300 ${
+                          key={`${nft.tokenAddress}-${nft.tokenId}`}                            className={`cursor-pointer transition-all duration-300 ${
                               selectedNFT?.tokenId === nft.tokenId ? "border-yellow-500 bg-yellow-500/10" : "bg-gray-900 border-gray-800 hover:border-yellow-500"
                             }`}
                             onClick={() => setSelectedNFT(nft)}
