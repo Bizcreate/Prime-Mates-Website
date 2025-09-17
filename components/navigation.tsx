@@ -1,16 +1,18 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu } from "lucide-react"
-import { useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { CartDisplay } from "@/components/cart-display"
-import { WalletConnect } from "@/packages/prime-shared/components/WalletConnect"
+import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
+
+import { CartDisplay } from "@/components/cart-display";
+import ConnectWidget from "@/components/ConnectWidget";
 
 export function Navigation() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -24,7 +26,7 @@ export function Navigation() {
     { name: "Merch", href: "/merch" },
     { name: "About", href: "/#about" },
     { name: "Contact", href: "/#contact" },
-  ]
+  ];
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-md border-b border-primary/20 glow-yellow-soft">
@@ -32,7 +34,14 @@ export function Navigation() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <div className="flex items-center">
-            <Image src="/images/banana-logo.png" alt="Prime Mates Board Club" width={50} height={50} className="mr-3" />
+            <Image
+              src="/images/banana-logo.png"
+              alt="Prime Mates Board Club"
+              width={50}
+              height={50}
+              className="mr-3"
+              priority
+            />
             <div className="hidden sm:block">
               <h1 className="text-xl font-black text-primary glow-yellow-soft">PMBC</h1>
             </div>
@@ -45,17 +54,20 @@ export function Navigation() {
                 key={item.name}
                 href={item.href}
                 className="text-foreground hover:text-primary transition-colors font-medium text-sm uppercase tracking-wide hover:glow-yellow-soft"
-                onClick={() => setIsOpen(false)}
               >
                 {item.name}
               </Link>
             ))}
           </div>
 
-          {/* Actions */}
+          {/* Actions (Cart + Connect) */}
           <div className="flex items-center space-x-4">
             <CartDisplay />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              {/* Your working thirdweb connect widget */}
+              <ConnectWidget />
+            </div>
+
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="lg:hidden">
@@ -64,7 +76,12 @@ export function Navigation() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="bg-background border-primary/20 panel-glow">
-                <div className="flex flex-col space-y-6 mt-8">
+                <div className="flex flex-col gap-6 mt-8">
+                  {/* Mobile connect button */}
+                  <div className="sm:hidden">
+                    <ConnectWidget />
+                  </div>
+
                   {navItems.map((item) => (
                     <Link
                       key={item.name}
@@ -82,5 +99,7 @@ export function Navigation() {
         </div>
       </div>
     </nav>
-  )
+  );
 }
+
+export default Navigation;

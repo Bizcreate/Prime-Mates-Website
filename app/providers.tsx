@@ -1,16 +1,16 @@
-"use client"
-import type { ReactNode } from "react"
-import { Web3Provider } from "@/packages/prime-shared/providers/Web3Provider"
+"use client";
 
-/**
- * Global provider keeps connection & query state across routes.
- * Why: ensures wallet state persists between pages in App Router.
- */
-export default function Providers({ children }: { children: ReactNode }) {
+import { PropsWithChildren } from "react";
+import { ThemeProvider } from "@/components/theme-provider";
+import Web3Provider from "@/packages/prime-shared/providers/Web3Provider";
+import { CartProvider } from "@/context/cart-context";
+
+export default function Providers({ children }: PropsWithChildren) {
   return (
-    <Web3Provider>
-      {/* Web3Provider includes ThirdwebProvider + Firebase auth + wallet management */}
-      {children}
-    </Web3Provider>
-  )
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <Web3Provider>
+        <CartProvider>{children}</CartProvider>
+      </Web3Provider>
+    </ThemeProvider>
+  );
 }

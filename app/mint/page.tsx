@@ -14,7 +14,8 @@ import { client } from "@/lib/client"
 import { getContract, prepareContractCall } from "thirdweb"
 import { ethereum } from "thirdweb/chains" // Changed from polygon to ethereum
 import { COLLECTIONS } from "@/config/contracts"
-import { ConnectWidget } from "@/components/ConnectWidget"
+import ConnectWidgetDefault, { ConnectWidget as ConnectWidgetNamed } from "@/components/ConnectWidget";
+const ConnectWidget = ConnectWidgetNamed ?? ConnectWidgetDefault;
 
 const CONTRACT_ADDRESS = COLLECTIONS.pmbc.address
 const CHAIN = ethereum // Changed from polygon to ethereum
