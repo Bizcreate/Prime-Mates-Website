@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import * as Lucide from "lucide-react";
 import {
   Search,
   ExternalLink,
@@ -31,11 +32,20 @@ import {
   Layers,
   Copy,
   Trash2,
--  // ⛔️ Do NOT import EyeDropper/Pipette as named icons here (version differences)
-+  // Use Droplet as the eyedropper icon to avoid version issues
-+  Droplet as EyeDropperIcon,
+  // ⛔️ Do NOT import EyeDropper or Pipette directly here
 } from "lucide-react";
 
+// Works with any lucide version: use whatever exists
+const EyeDropperIcon =
+  // newest packages
+  // @ts-ignore
+  (Lucide as any).Pipette ??
+  // some versions
+  // @ts-ignore
+  (Lucide as any).EyeDropper ??
+  // fallback if neither exists
+  // @ts-ignore
+  (Lucide as any).Droplet;
 
 import { useActiveAccount } from "thirdweb/react";
 import { Insight } from "thirdweb";
@@ -174,16 +184,24 @@ const PHONE_FILES: string[] = [
 
 type Overlay = {
   id: string;
-  src: string;
+  src: string;          // original src (unchanged)
   name?: string;
   x: number;
   y: number;
   scale: number;     // relative to template height
   rotation: number;  // degrees
-  removeBg?: { enabled: boolean; color: string; tol: number; soft: number; protectDark: boolean };
-  // preview processing cache
-  srcProcessed?: string;
-  _procKey?: string;
+  removeBg?: {
+    enabled: boolean;
+    colors?: string[];  // multi-key palette
+    color?: string;     // single key (back-compat)
+    tol: number;        // 0-100
+    soft: number;       // 0-100
+    protectDark: boolean;
+  };
+  // preview/edited cache
+  srcProcessed?: string; // auto processed (single or multi key)
+  srcEdited?: string;    // manual brushed result
+  _procKey?: string;     // cache key for srcProcessed
 };
 
 type GestureOverlay = {
@@ -212,6 +230,11 @@ function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(v.length === 3 ? v.split("").map((d) => d + d).join("") : v, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+function hexToRgbA(hex: string): [number, number, number] { // separate name for multi-key helper
+  const v = hex.replace("#", "");
+  const n = parseInt(v.length === 3 ? v.split("").map((d) => d + d).join("") : v, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
 function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -234,14 +257,15 @@ function hueDist(a: number, b: number) {
   return Math.min(d, 360 - d);
 }
 
-/** HSV soft-keying with feather and line-art protection. */
-async function colorKeySoft(
-  src: string,
-  keyHex: string,
-  tol: number,       // 0-100
-  soft: number,      // 0-100
-  protectDark: boolean
-): Promise<string> {
+function hsvDist([h1,s1,v1]:[number,number,number],[h2,s2,v2]:[number,number,number]) {
+  const dh = Math.min(Math.abs(h1 - h2), 360 - Math.abs(h1 - h2)) / 180; // 0..1
+  const ds = Math.abs(s1 - s2);
+  const dv = Math.abs(v1 - v2);
+  return Math.sqrt((2.1 * dh) ** 2 + (1.0 * ds) ** 2 + (0.35 * dv) ** 2);
+}
+
+/** HSV soft-keying with feather and line-art protection (single color). */
+async function colorKeySoft(src: string, keyHex: string, tol: number, soft: number, protectDark: boolean): Promise<string> {
   const img = await loadImage(src);
   const c = document.createElement("canvas");
   c.width = img.width;
@@ -253,13 +277,8 @@ async function colorKeySoft(
   const [kr, kg, kb] = hexToRgb(keyHex);
   const [kh, ks, kv] = rgbToHsv(kr, kg, kb);
 
-  // Tunables (kept internal so UI stays simple)
-  const THR = Math.max(0, Math.min(1, tol / 100));       // base threshold
-  const FEATHER = Math.max(0, Math.min(1, soft / 100));  // feather width
-  const MIN_S = 0.25;   // require some saturation to remove
-  const MIN_V = 0.35;   // and minimum brightness
-  const DARK_V = 0.22;  // protect line art
-  const DARK_S = 0.12;
+  const thr = Math.max(0, Math.min(1, tol / 100));
+  const feather = Math.max(0, Math.min(1, soft / 100));
 
   for (let i = 0; i < data.data.length; i += 4) {
     const r = data.data[i], g = data.data[i + 1], b = data.data[i + 2];
@@ -268,26 +287,80 @@ async function colorKeySoft(
 
     const [h, s, v] = rgbToHsv(r, g, b);
 
-    // Optional protection for dark ink lines
+    const DARK_V = 0.22; const DARK_S = 0.12; // protect ink lines
     if (protectDark && v < DARK_V && s > DARK_S) continue;
 
-    // Only consider reasonably saturated/bright pixels as background
+    const MIN_S = 0.25; const MIN_V = 0.35;  // avoid low-sat/low-val (skin/shadows)
     if (s < MIN_S || v < MIN_V) continue;
 
-    // Weighted distance in HSV (smaller = closer to key color)
-    const dh = Math.min(Math.abs(h - kh), 360 - Math.abs(h - kh)) / 180; // 0..1
+    const dh = hueDist(h, kh) / 180;
     const ds = Math.abs(s - ks);
     const dv = Math.abs(v - kv);
 
-    // Put more weight on hue, less on value
     const dist = Math.sqrt((2.1 * dh) ** 2 + (1.0 * ds) ** 2 + (0.35 * dv) ** 2);
     const norm = Math.min(1, dist / 1.8);
 
+    if (norm <= thr) {
+      data.data[i + 3] = 0;
+    } else if (feather > 0 && norm <= thr + feather) {
+      const t = (norm - thr) / feather;
+      data.data[i + 3] = Math.round(a * t);
+    }
+  }
+
+  ctx.putImageData(data, 0, 0);
+  return c.toDataURL("image/png");
+}
+
+/** Multi-key HSV soft-keying: removes pixels close to ANY color in palette. */
+async function colorKeySoftMulti(
+  src: string,
+  keyHexes: string[],
+  tol: number,
+  soft: number,
+  protectDark: boolean
+): Promise<string> {
+  const img = await loadImage(src);
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  const keysHSV = keyHexes.map(h => {
+    const [r,g,b] = hexToRgbA(h);
+    return rgbToHsv(r,g,b);
+  });
+
+  const THR = Math.max(0, Math.min(1, tol / 100));
+  const FEATHER = Math.max(0, Math.min(1, soft / 100));
+  const MIN_S = 0.22;
+  const MIN_V = 0.33;
+  const DARK_V = 0.22;
+  const DARK_S = 0.12;
+
+  for (let i = 0; i < data.data.length; i += 4) {
+    const r = data.data[i], g = data.data[i+1], b = data.data[i+2];
+    const a = data.data[i+3];
+    if (a === 0) continue;
+
+    const hsv = rgbToHsv(r,g,b);
+
+    if (protectDark && hsv[2] < DARK_V && hsv[1] > DARK_S) continue; // keep ink
+    if (hsv[1] < MIN_S || hsv[2] < MIN_V) continue; // avoid skin/shadows
+
+    let minDist = 1e9;
+    for (const k of keysHSV) {
+      const d = hsvDist(hsv, k);
+      if (d < minDist) minDist = d;
+    }
+    const norm = Math.min(1, minDist / 1.8);
+
     if (norm <= THR) {
-      data.data[i + 3] = 0; // fully remove
+      data.data[i+3] = 0;
     } else if (FEATHER > 0 && norm <= THR + FEATHER) {
       const t = (norm - THR) / FEATHER;
-      data.data[i + 3] = Math.round(a * t); // feather
+      data.data[i+3] = Math.round(a * t);
     }
   }
 
@@ -304,20 +377,18 @@ function solidColorDataURL(hex: string) {
 }
 function removeKey(o: Overlay) {
   const r = o.removeBg;
-  return r && r.enabled
-    ? [o.src, r.color, r.tol, r.soft, r.protectDark ? 1 : 0].join("|")
-    : "";
+  if (!r || !r.enabled) return "";
+  const keys = (r.colors && r.colors.length ? r.colors : [r.color || "#87ceeb"]).join(",");
+  return [o.src, keys, r.tol, r.soft, r.protectDark ? 1 : 0].join("|");
+}
+
+function overlaySrc(o: Overlay) {
+  return o.srcEdited || o.srcProcessed || o.src;
 }
 
 /* ------------------------------------------------------------------ */
 /* Gesture overlays                                                    */
 /* ------------------------------------------------------------------ */
-
-// Collab gate: visible to holders of core collections OR holders of the collab's own whitelist contracts.
-const CORE_HOLDER_CONTRACTS = [
-  "0x12662b6a2a424a0090b7d09401fb775a9b968898", // Prime Mates Board Club
-  "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75", // Prime To The Bone
-].map((a) => a.toLowerCase());
 
 const COLLAB_WHITELIST = ["0x0000000000000000000000000000000000000000"]; // replace if needed
 
@@ -356,7 +427,6 @@ const GESTURE_OVERLAYS: GestureOverlay[] = [
   { id: "board-19", name: "Board 19", image: "/gestures/boards/Board19.png", category: "boards" },
 
   // ---------------- Clothes ----------------
-  { id: "clo-blacktee",  name: "Black Tee",   image: "/gestures/clothes/blacktee.png",   category: "clothes" },
   { id: "clo-blacktee2",  name: "Black Tee 2",   image: "/gestures/clothes/blacktee2.png",   category: "clothes" },
   { id: "clo-blacktee3",  name: "Black Tee 3",   image: "/gestures/clothes/blacktee3.png",   category: "clothes" },
   { id: "clo-blacktee4",  name: "Black Tee 4",   image: "/gestures/clothes/blacktee4.png",   category: "clothes" },
@@ -397,14 +467,120 @@ function detectBoardKind(nft?: NFTData): GestureOverlay["boardKind"] | undefined
 }
 
 /* ------------------------------------------------------------------ */
+/* Mini mask editor                                                    */
+/* ------------------------------------------------------------------ */
+
+function MaskCanvas({
+  url,
+  origUrl,
+  size = 512,
+  brush = 24,
+  mode = "erase",
+  onChange,
+}: {
+  url: string;
+  origUrl: string;
+  size?: number;
+  brush?: number;
+  mode?: "erase" | "restore";
+  onChange: (nextUrl: string) => void;
+}) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const origRef = useRef<HTMLImageElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [drag, setDrag] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      imgRef.current = img;
+      const orig = new Image();
+      orig.crossOrigin = "anonymous";
+      orig.onload = () => {
+        origRef.current = orig;
+        setReady(true);
+      };
+      orig.src = encodeURI(origUrl);
+    };
+    img.src = encodeURI(url);
+  }, [url, origUrl]);
+
+  useEffect(() => {
+    if (!ready || !ref.current || !imgRef.current) return;
+    const cnv = ref.current;
+    const ctx = cnv.getContext("2d")!;
+    const img = imgRef.current!;
+    cnv.width = size; cnv.height = size;
+    ctx.clearRect(0,0,cnv.width,cnv.height);
+    const scale = Math.min(cnv.width / img.width, cnv.height / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    const x = (cnv.width - w) / 2;
+    const y = (cnv.height - h) / 2;
+    ctx.drawImage(img, x, y, w, h);
+  }, [ready, size, url]);
+
+  function drawAt(x: number, y: number) {
+    if (!ref.current || !imgRef.current) return;
+    const cnv = ref.current;
+    const ctx = cnv.getContext("2d")!;
+    const img = imgRef.current!;
+    const orig = origRef.current!;
+
+    const scale = Math.min(cnv.width / img.width, cnv.height / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    const x0 = (cnv.width - w) / 2;
+    const y0 = (cnv.height - h) / 2;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, brush / 2, 0, Math.PI * 2);
+    ctx.closePath();
+
+    if (mode === "erase") {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      ctx.fill();
+    } else {
+      ctx.clip();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(orig, x0, y0, w, h);
+    }
+    ctx.restore();
+
+    onChange(cnv.toDataURL("image/png"));
+  }
+
+  function handlePointer(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    drawAt(x, y);
+  }
+
+  return (
+    <div className="relative">
+      <canvas
+        ref={ref}
+        className="w-full max-w-[512px] border border-gray-800 rounded-md touch-none"
+        onPointerDown={(e) => { setDrag(true); handlePointer(e); }}
+        onPointerMove={(e) => { if (drag) handlePointer(e); }}
+        onPointerUp={() => setDrag(false)}
+        onPointerLeave={() => setDrag(false)}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
 export default function GalleryPage() {
-  // Mounted guard to avoid any hydration/SSR edge cases before DOM exists.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const account = useActiveAccount();
   const walletAddress = account?.address;
   const isConnected = !!account;
@@ -443,15 +619,6 @@ export default function GalleryPage() {
     () => Object.fromEntries(collections.map((c) => [c.address.toLowerCase(), { name: c.name, chainId: c.chainId }])),
     [],
   );
-
-  // Owned contracts set (for collab gating)
-  const ownedContractSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const n of userNFTs) {
-      if (n.tokenAddress) s.add(n.tokenAddress.toLowerCase());
-    }
-    return s;
-  }, [userNFTs]);
 
   /* ------------------------------- data ------------------------------- */
 
@@ -770,11 +937,33 @@ export default function GalleryPage() {
     e.currentTarget.value = "";
   }
 
+  // Manual brush editor state
+  const [maskEdit, setMaskEdit] = useState<{
+    id: string;
+    workingUrl: string;
+    brush: number;
+    mode: "erase" | "restore";
+  } | null>(null);
+
+  async function openMaskEditor(o: Overlay) {
+    const base = overlaySrc(o);
+    setMaskEdit({ id: o.id, workingUrl: base, brush: 24, mode: "erase" });
+  }
+  function closeMaskEditor() { setMaskEdit(null); }
+
   // PREVIEW processing for remove-bg (cached)
   useEffect(() => {
     let cancelled = false;
 
     async function maybeProcess(o: Overlay) {
+      if (o.srcEdited) {
+        // manual wins; clear auto cache to keep memory down
+        if (o.srcProcessed || o._procKey) {
+          setOverlays((p) => p.map(x => x.id === o.id ? { ...x, srcProcessed: undefined, _procKey: undefined } : x));
+        }
+        return;
+      }
+
       if (!o.removeBg?.enabled) {
         if (o.srcProcessed || o._procKey) {
           setOverlays((p) => p.map(x => x.id === o.id ? { ...x, srcProcessed: undefined, _procKey: undefined } : x));
@@ -785,13 +974,10 @@ export default function GalleryPage() {
       if (o._procKey === key && o.srcProcessed) return;
 
       try {
-        const processed = await colorKeySoft(
-          o.src,
-          o.removeBg.color,
-          o.removeBg.tol,
-          o.removeBg.soft,
-          !!o.removeBg.protectDark,
-        );
+        const keys = (o.removeBg.colors?.length ? o.removeBg.colors : [o.removeBg.color || "#87ceeb"]);
+        const processed = keys.length > 1
+          ? await colorKeySoftMulti(o.src, keys, o.removeBg.tol, o.removeBg.soft, !!o.removeBg.protectDark)
+          : await colorKeySoft(o.src, keys[0], o.removeBg.tol, o.removeBg.soft, !!o.removeBg.protectDark);
         if (!cancelled) {
           setOverlays((p) => p.map(x => x.id === o.id ? { ...x, srcProcessed: processed, _procKey: key } : x));
         }
@@ -809,7 +995,8 @@ export default function GalleryPage() {
   }, [JSON.stringify(overlays.map(o => ({
     id: o.id,
     src: o.src,
-    r: o.removeBg ? [o.removeBg.enabled, o.removeBg.color, o.removeBg.tol, o.removeBg.soft, o.removeBg.protectDark] : null,
+    edited: !!o.srcEdited,
+    r: o.removeBg ? [o.removeBg.enabled, (o.removeBg.colors && o.removeBg.colors.join(",")) || o.removeBg.color, o.removeBg.tol, o.removeBg.soft, o.removeBg.protectDark] : null,
   })))]);
 
   async function exportBanner() {
@@ -849,9 +1036,13 @@ export default function GalleryPage() {
 
     // overlays
     for (const o of overlays) {
-      const src = o.removeBg?.enabled
-        ? (o.srcProcessed || await colorKeySoft(o.src, o.removeBg.color, o.removeBg.tol, o.removeBg.soft, !!o.removeBg.protectDark))
-        : o.src;
+      let src = overlaySrc(o);
+      if (!o.srcEdited && o.removeBg?.enabled && !o.srcProcessed) {
+        const keys = (o.removeBg.colors?.length ? o.removeBg.colors : [o.removeBg.color || "#87ceeb"]);
+        src = keys.length > 1
+          ? await colorKeySoftMulti(o.src, keys, o.removeBg.tol, o.removeBg.soft, !!o.removeBg.protectDark)
+          : await colorKeySoft(o.src, keys[0], o.removeBg.tol, o.removeBg.soft, !!o.removeBg.protectDark);
+      }
       const img = await loadImage(src);
 
       const targetH = tmpl.h * o.scale;
@@ -894,8 +1085,6 @@ export default function GalleryPage() {
   /* ------------------------------------------------------------------ */
   /* Render                                                              */
   /* ------------------------------------------------------------------ */
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1232,7 +1421,8 @@ export default function GalleryPage() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                         {userNFTs.map((nft) => (
                           <Card
-                          key={`${nft.tokenAddress}-${nft.tokenId}`}                            className={`cursor-pointer transition-all duration-300 ${
+                            key={`${nft.tokenAddress}-${nft.tokenId}`}
+                            className={`cursor-pointer transition-all duration-300 ${
                               selectedNFT?.tokenId === nft.tokenId ? "border-yellow-500 bg-yellow-500/10" : "bg-gray-900 border-gray-800 hover:border-yellow-500"
                             }`}
                             onClick={() => setSelectedNFT(nft)}
@@ -1274,14 +1464,12 @@ export default function GalleryPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {(() => {
                         const kind = detectBoardKind(selectedNFT);
+                        const collabContract = selectedNFT?.tokenAddress?.toLowerCase();
                         return GESTURE_OVERLAYS.filter((g) => {
                           if (g.category !== gestureTab) return false;
                           if (g.category === "boards" && kind && g.boardKind && g.boardKind !== kind) return false;
-                          if (g.category === "collabs") {
-                            // gate by ownership: core collections OR collab whitelist
-                            const hasCore = CORE_HOLDER_CONTRACTS.some((a) => ownedContractSet.has(a));
-                            const hasWL = (g.whitelist?.some((a) => ownedContractSet.has(a.toLowerCase())) ?? false);
-                            if (!(hasCore || hasWL)) return false;
+                          if (g.category === "collabs" && g.whitelist && collabContract && !g.whitelist.map((x) => x.toLowerCase()).includes(collabContract)) {
+                            return false;
                           }
                           return true;
                         }).map((gesture) => {
@@ -1305,9 +1493,9 @@ export default function GalleryPage() {
                                   setSelBoard(gesture.id);
                                   setSelHand(""); // mutual exclusion
                                 } else if (gesture.category === "clothes") {
-                                  setSelClothes((prev) => (prev === gesture.id ? "" : gesture.id));
+                                  setSelClothes(prev => prev === gesture.id ? "" : gesture.id);
                                 } else if (gesture.category === "collabs") {
-                                  setSelCollab((prev) => (prev === gesture.id ? "" : gesture.id));
+                                  setSelCollab(prev => prev === gesture.id ? "" : gesture.id);
                                 }
                               }}
                             >
@@ -1421,12 +1609,7 @@ export default function GalleryPage() {
                     </label>
 
                     <label className="inline-flex items-center gap-2 ml-auto text-sm">
-                      <input
-                        type="checkbox"
-                        checked={transparentBG}
-                        onChange={(e) => setTransparentBG(e.target.checked)}
-                      />
-                      Transparent BG
+                      <input type="checkbox" checked={transparentBG} onChange={(e) => setTransparentBG(e.target.checked)} /> Transparent BG
                     </label>
 
                     <Button onClick={exportBanner} className="bg-yellow-500 text-black hover:bg-yellow-400">
@@ -1454,11 +1637,11 @@ export default function GalleryPage() {
                       />
                     )}
 
-                    {/* overlays (use processed src when remove-bg is enabled) */}
+                    {/* overlays (use processed/edited src when available) */}
                     {overlays.map((o) => (
                       <img
                         key={o.id}
-                        src={o.srcProcessed || o.src}
+                        src={overlaySrc(o)}
                         alt={o.name || "overlay"}
                         className={`absolute cursor-grab ${selectedOverlayId === o.id ? "ring-2 ring-blue-400" : ""}`}
                         style={{
@@ -1480,10 +1663,7 @@ export default function GalleryPage() {
                       <Download className="w-4 h-4 mr-2" />
                       Download PNG
                     </Button>
-                    <Button
-                      className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => window.alert("Share coming soon")}
-                    >
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => window.alert("Share coming soon")}>
                       <Share className="w-4 h-4 mr-2" />
                       Share
                     </Button>
@@ -1492,13 +1672,12 @@ export default function GalleryPage() {
 
                 {/* RIGHT: background, NFTs, controls */}
                 <div className="space-y-6">
+
                   {/* Backgrounds */}
                   <Card className="bg-gray-900 border-gray-800">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="font-semibold flex items-center gap-2">
-                          <Brush className="w-4 h-4" /> Background
-                        </div>
+                        <div className="font-semibold flex items-center gap-2"><Brush className="w-4 h-4" /> Background</div>
                         <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                           <Upload className="w-4 h-4" />
                           Upload background
@@ -1529,17 +1708,10 @@ export default function GalleryPage() {
                           <button
                             key={b.id}
                             onClick={() => setBgIndex(i)}
-                            className={`rounded-md overflow-hidden border ${
-                              i === bgIndex ? "border-blue-500" : "border-gray-800 hover:border-gray-700"
-                            }`}
+                            className={`rounded-md overflow-hidden border ${i === bgIndex ? "border-blue-500" : "border-gray-800 hover:border-gray-700"}`}
                           >
                             <div className="aspect-video bg-gray-800">
-                              <img
-                                src={b.src}
-                                alt="bg"
-                                className="w-full h-full object-cover"
-                                onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
-                              />
+                              <img src={b.src} alt="bg" className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
                             </div>
                           </button>
                         ))}
@@ -1552,9 +1724,7 @@ export default function GalleryPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="font-semibold">Your NFTs (add as overlays)</div>
-                        <button className="text-sm text-gray-400 hover:text-white" onClick={clearOverlays}>
-                          Clear
-                        </button>
+                        <button className="text-sm text-gray-400 hover:text-white" onClick={clearOverlays}>Clear</button>
                       </div>
                       {userNFTs.length === 0 ? (
                         <div className="text-sm text-gray-400">No NFTs found in your wallet.</div>
@@ -1581,7 +1751,7 @@ export default function GalleryPage() {
                       <CardContent className="p-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="font-semibold">Overlay Controls</div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1596,8 +1766,7 @@ export default function GalleryPage() {
                                 });
                               }}
                             >
-                              <Layers className="w-4 h-4 mr-2" />
-                              Front
+                              <Layers className="w-4 h-4 mr-2" />Front
                             </Button>
                             <Button
                               variant="outline"
@@ -1613,25 +1782,18 @@ export default function GalleryPage() {
                                 });
                               }}
                             >
-                              <Layers className="w-4 h-4 mr-2 rotate-180" />
-                              Back
+                              <Layers className="w-4 h-4 mr-2 rotate-180" />Back
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                const clone = {
-                                  ...selectedOverlay,
-                                  id: uid(),
-                                  x: selectedOverlay.x + 24,
-                                  y: selectedOverlay.y + 24,
-                                };
+                                const clone = { ...selectedOverlay, id: uid(), x: selectedOverlay.x + 24, y: selectedOverlay.y + 24 };
                                 setOverlays((p) => [...p, clone]);
                                 setSelectedOverlayId(clone.id);
                               }}
                             >
-                              <Copy className="w-4 h-4 mr-2" />
-                              Duplicate
+                              <Copy className="w-4 h-4 mr-2" />Duplicate
                             </Button>
                             <Button
                               variant="outline"
@@ -1642,9 +1804,9 @@ export default function GalleryPage() {
                                 setSelectedOverlayId(null);
                               }}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
+                              <Trash2 className="w-4 h-4 mr-2" />Delete
                             </Button>
+                            <Button size="sm" variant="outline" onClick={() => openMaskEditor(selectedOverlay)}>Manual erase/restore</Button>
                           </div>
                         </div>
 
@@ -1657,11 +1819,7 @@ export default function GalleryPage() {
                             step={0.02}
                             value={selectedOverlay.scale}
                             onChange={(e) =>
-                              setOverlays((p) =>
-                                p.map((o) =>
-                                  o.id === selectedOverlay.id ? { ...o, scale: Number(e.target.value) } : o,
-                                ),
-                              )
+                              setOverlays((p) => p.map((o) => (o.id === selectedOverlay.id ? { ...o, scale: Number(e.target.value) } : o)))
                             }
                             className="w-64"
                           />
@@ -1676,16 +1834,13 @@ export default function GalleryPage() {
                             step={1}
                             value={selectedOverlay.rotation}
                             onChange={(e) =>
-                              setOverlays((p) =>
-                                p.map((o) =>
-                                  o.id === selectedOverlay.id ? { ...o, rotation: Number(e.target.value) } : o,
-                                ),
-                              )
+                              setOverlays((p) => p.map((o) => (o.id === selectedOverlay.id ? { ...o, rotation: Number(e.target.value) } : o)))
                             }
                             className="w-64"
                           />
                         </div>
 
+                        {/* Removal toggles */}
                         <div className="flex flex-wrap items-center gap-3">
                           <label className="flex items-center gap-2 text-sm">
                             <input
@@ -1698,12 +1853,7 @@ export default function GalleryPage() {
                                       ? {
                                           ...o,
                                           removeBg: {
-                                            ...(o.removeBg || {
-                                              color: "#87ceeb",
-                                              tol: 50,
-                                              soft: 20,
-                                              protectDark: true,
-                                            }),
+                                            ...(o.removeBg || { tol: 50, soft: 20, protectDark: true }),
                                             enabled: e.target.checked,
                                           },
                                         }
@@ -1715,64 +1865,77 @@ export default function GalleryPage() {
                             Remove background
                           </label>
 
-                          <label className="flex items-center gap-2 text-sm">
-                            Color
-                            <input
-                              type="color"
-                              value={selectedOverlay.removeBg?.color || "#87ceeb"}
-                              onChange={(e) =>
-                                setOverlays((p) =>
-                                  p.map((o) =>
-                                    o.id === selectedOverlay.id
-                                      ? {
-                                          ...o,
-                                          removeBg: {
-                                            ...(o.removeBg || {
+                          {/* Multi-key palette UI */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs opacity-75">Key colors:</span>
+                            {(
+                              selectedOverlay.removeBg?.colors && selectedOverlay.removeBg.colors.length
+                                ? selectedOverlay.removeBg.colors
+                                : [selectedOverlay.removeBg?.color || "#87ceeb"]
+                            ).map((hex, idx) => (
+                              <button
+                                key={hex + idx}
+                                className="w-6 h-6 rounded border border-white/30"
+                                title={hex}
+                                style={{ background: hex }}
+                                onClick={() => {
+                                  if (selectedOverlay.removeBg?.colors?.length) {
+                                    setOverlays(p => p.map(o => o.id === selectedOverlay.id
+                                      ? { ...o, removeBg: { ...o.removeBg!, colors: o.removeBg!.colors!.filter((c, i) => !(c === hex && i === idx)) } }
+                                      : o));
+                                  }
+                                }}
+                              />
+                            ))}
+
+                            {/* add via <input type="color"> */}
+                            <label className="text-xs inline-flex items-center gap-1">
+                              +
+                              <input
+                                type="color"
+                                onChange={(e) => {
+                                  const hex = e.target.value;
+                                  setOverlays(p => p.map(o => o.id === selectedOverlay.id
+                                    ? {
+                                        ...o,
+                                        removeBg: {
+                                          ...(o.removeBg || { enabled: true, tol: 50, soft: 20, protectDark: true }),
+                                          colors: [...(o.removeBg?.colors || [o.removeBg?.color || "#87ceeb"]) , hex],
+                                          enabled: true,
+                                        },
+                                      }
+                                    : o));
+                                  (e.currentTarget as HTMLInputElement).value = "";
+                                }}
+                              />
+                            </label>
+
+                            {/* add via EyeDropper */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                eyeDropperPick((hex) =>
+                                  setOverlays((p) =>
+                                    p.map((o) =>
+                                      o.id === selectedOverlay.id
+                                        ? {
+                                            ...o,
+                                            removeBg: {
+                                              ...(o.removeBg || { enabled: true, tol: 50, soft: 20, protectDark: true }),
+                                              colors: [...(o.removeBg?.colors || [o.removeBg?.color || "#87ceeb"]), hex],
                                               enabled: true,
-                                              tol: 50,
-                                              soft: 20,
-                                              protectDark: true,
-                                            }),
-                                            color: e.target.value,
-                                          },
-                                        }
-                                      : o,
+                                            },
+                                          }
+                                        : o,
+                                    ),
                                   ),
                                 )
                               }
-                            />
-                          </label>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              eyeDropperPick((hex) =>
-                                setOverlays((p) =>
-                                  p.map((o) =>
-                                    o.id === selectedOverlay.id
-                                      ? {
-                                          ...o,
-                                          removeBg: {
-                                            ...(o.removeBg || {
-                                              enabled: true,
-                                              tol: 50,
-                                              soft: 20,
-                                              protectDark: true,
-                                            }),
-                                            color: hex,
-                                            enabled: true,
-                                          },
-                                        }
-                                      : o,
-                                  ),
-                                ),
-                              )
-                            }
-                          >
-                            {EyeDropperIcon ? <EyeDropperIcon className="w-4 h-4 mr-2" /> : null}
-                            Pick color
-                          </Button>
+                            >
+                              {EyeDropperIcon ? <EyeDropperIcon className="w-4 h-4 mr-2" /> : null} Add color
+                            </Button>
+                          </div>
 
                           <label className="flex items-center gap-2 text-sm">
                             Tol
@@ -1789,12 +1952,7 @@ export default function GalleryPage() {
                                       ? {
                                           ...o,
                                           removeBg: {
-                                            ...(o.removeBg || {
-                                              enabled: true,
-                                              color: "#87ceeb",
-                                              soft: 20,
-                                              protectDark: true,
-                                            }),
+                                            ...(o.removeBg || { enabled: true, soft: 20, protectDark: true }),
                                             tol: Number(e.target.value) || 50,
                                           },
                                         }
@@ -1820,12 +1978,7 @@ export default function GalleryPage() {
                                       ? {
                                           ...o,
                                           removeBg: {
-                                            ...(o.removeBg || {
-                                              enabled: true,
-                                              color: "#87ceeb",
-                                              tol: 50,
-                                              protectDark: true,
-                                            }),
+                                            ...(o.removeBg || { enabled: true, tol: 50, protectDark: true }),
                                             soft: Number(e.target.value) || 20,
                                           },
                                         }
@@ -1847,12 +2000,7 @@ export default function GalleryPage() {
                                       ? {
                                           ...o,
                                           removeBg: {
-                                            ...(o.removeBg || {
-                                              enabled: true,
-                                              color: "#87ceeb",
-                                              tol: 50,
-                                              soft: 20,
-                                            }),
+                                            ...(o.removeBg || { enabled: true, color: "#87ceeb", tol: 50, soft: 20 }),
                                             protectDark: e.target.checked,
                                           },
                                         }
@@ -1864,6 +2012,49 @@ export default function GalleryPage() {
                             Protect dark lines
                           </label>
                         </div>
+
+                        {/* Manual editor */}
+                        {maskEdit && maskEdit.id === selectedOverlay.id && (
+                          <div className="mt-3 border border-gray-800 rounded-lg p-3">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-sm font-semibold">Manual touch-up</span>
+                              <Button size="sm" variant={maskEdit.mode === "erase" ? "default" : "outline"}
+                                onClick={() => setMaskEdit(m => m && ({ ...m, mode: "erase" }))}>Erase</Button>
+                              <Button size="sm" variant={maskEdit.mode === "restore" ? "default" : "outline"}
+                                onClick={() => setMaskEdit(m => m && ({ ...m, mode: "restore" }))}>Restore</Button>
+                              <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-xs">Brush</span>
+                                <input type="range" min={4} max={80} step={1} value={maskEdit.brush}
+                                  onChange={(e) => setMaskEdit(m => m && ({ ...m, brush: Number(e.target.value) }))} />
+                              </div>
+                            </div>
+
+                            <MaskCanvas
+                              url={maskEdit.workingUrl}
+                              origUrl={selectedOverlay.src}
+                              mode={maskEdit.mode}
+                              size={512}
+                              brush={maskEdit.brush}
+                              onChange={(nextUrl) => setMaskEdit(m => m && ({ ...m, workingUrl: nextUrl }))}
+                            />
+
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700"
+                                onClick={() => {
+                                  const finalUrl = maskEdit.workingUrl;
+                                  setOverlays(p => p.map(o => o.id === selectedOverlay.id ? { ...o, srcEdited: finalUrl } : o));
+                                  closeMaskEditor();
+                                }}>Apply</Button>
+                              <Button size="sm" variant="outline"
+                                onClick={() => {
+                                  setOverlays(p => p.map(o => o.id === selectedOverlay.id ? { ...o, srcEdited: undefined } : o));
+                                  closeMaskEditor();
+                                }}>Reset manual</Button>
+                              <Button size="sm" variant="ghost" onClick={closeMaskEditor}>Close</Button>
+                            </div>
+                          </div>
+                        )}
+
                       </CardContent>
                     </Card>
                   )}
