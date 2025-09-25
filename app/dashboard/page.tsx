@@ -1,11 +1,6 @@
-import type { Metadata } from "next"
-import DashboardClient from "./DashboardClient"
-
-export const metadata: Metadata = {
-  title: "Member Dashboard - Prime Mates Board Club",
-  description: "Access your PMBC NFT holdings, tier status, and exclusive member benefits",
-}
+export const dynamic = "force-dynamic";
+import { MemberDashboard } from "@/components/member-dashboard";
 
 export default function DashboardPage() {
-  return <DashboardClient />
+  return <MemberDashboard />;
 }

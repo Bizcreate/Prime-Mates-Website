@@ -1,23 +1,15 @@
-import type { Metadata } from "next";
+// app/layout.tsx
 import "./globals.css";
 import Providers from "./providers";
-import { Navigation } from "@/components/navigation";
-import { Toaster } from "@/components/ui/toaster";
-
-export const metadata: Metadata = {
-  title: "Prime Mates Board Club",
-  description: "Official website for Prime Mates Board Club",
-  generator: "v0.app",
-};
+import SiteHeader from "@/components/site-header";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body>
         <Providers>
-          <Navigation />
-          <div className="pt-20">{children}</div>
-          <Toaster />
+          <SiteHeader />
+          {children}
         </Providers>
       </body>
     </html>
