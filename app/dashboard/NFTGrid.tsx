@@ -8,6 +8,26 @@ import { base, ethereum, polygon, arbitrum } from "thirdweb/chains";
 import { getContract } from "thirdweb";
 import { useReadContract } from "thirdweb/react";
 import { getOwnedNFTs } from "thirdweb/extensions/erc721"; // v5 read
+// at top
+import { resolveMediaUrl, proxiedMediaUrl } from "@/lib/resolveMedia";
+import { resolveMediaUrl } from "@/lib/media";
+
+<img src={resolveMediaUrl(nft.image) || "/placeholder.png"} ... />
+
+// ... inside your map over NFTs:
+const raw = nft?.metadata?.image || nft?.metadata?.image_url || nft?.image;
+const resolved = resolveMediaUrl(raw);
+const src = proxiedMediaUrl(resolved);
+
+// If using <img>
+<img
+  src={src ?? "/placeholder.png"}
+  alt={nft?.metadata?.name || "NFT"}
+  className="w-full h-full object-cover"
+/>
+
+// If using next/image:
+{/* <Image src={src ?? "/placeholder.png"} alt={...} fill sizes="..." unoptimized /> */}
 
 type NFT = { contract: string; tokenId: string; name?: string; image?: string };
 

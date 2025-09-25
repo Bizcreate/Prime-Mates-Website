@@ -5,6 +5,9 @@ import { client } from "@/lib/thirdweb-client";
 import { getContract } from "thirdweb";
 import { getOwnedNFTs } from "thirdweb/extensions/erc721";
 import { NFTStakeCard } from "./NFTStakeCard";
+import { resolveMediaUrl } from "@/lib/media";
+
+<img src={resolveMediaUrl(nft.image) || "/placeholder.png"} ... />
 
 const ETH_COLLECTIONS = [
   // "0x12662b6a2a424a0090b7d09401fb775a9b968898",

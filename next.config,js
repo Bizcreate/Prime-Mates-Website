@@ -1,12 +1,11 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+// next.config.js
+module.exports = {
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "ipfs.io" },
       { protocol: "https", hostname: "cloudflare-ipfs.com" },
-      { protocol: "https", hostname: "nftstorage.link" },
-      // add any other remote CDN you might show images from
+      { protocol: "https", hostname: "gateway.pinata.cloud" },
+      { protocol: "https", hostname: "ipfs.io" },
+      { protocol: "https", hostname: "arweave.net" },
     ],
   },
 };
-module.exports = nextConfig;
