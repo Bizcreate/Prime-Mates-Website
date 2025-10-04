@@ -8,6 +8,23 @@ import { PointsCard } from "./dashboard/PointsCard";
 import { ActivityList } from "./dashboard/ActivityList";
 import ChainGuard from "@/components/chain-guard";
 import { NFTGrid } from "./dashboard/NFTGrid";
+// inside components/member-dashboard.tsx (near the top section)
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+{/* actions row */}
+<div className="flex gap-3">
+  <Link href="/dashboard/inventory">
+    <Button variant="outline" className="border-yellow-500 text-yellow-400 hover:bg-yellow-500/10">
+      View Inventory
+    </Button>
+  </Link>
+  <Link href="/#prime-arcade">
+    <Button className="bg-yellow-500 text-black hover:bg-yellow-400">
+      Launch Prime Arcade
+    </Button>
+  </Link>
+</div>
 
 
 export function MemberDashboard() {
