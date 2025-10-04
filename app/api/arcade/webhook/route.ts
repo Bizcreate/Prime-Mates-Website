@@ -1,22 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase/arcade";
 import { addPointsServer } from "@/lib/points";
+import { postToDiscord } from "@/lib/discord";
 
-/**
- * Minimal webhook to receive game results from the Telegram bot server.
- * Expected JSON:
- * {
- *   "secret": "ARCADE_WEBHOOK_SECRET",
- *   "address": "0xabc...",    // EVM wallet (checksummed or lower is fine)
- *   "delta": 25,              // XP to add (int)
- *   "reason": "Flappy Ape #weekly" // optional
- * }
- */
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const secret = body?.secret;
-    if (secret !== process.env.ARCADE_WEBHOOK_SECRET) {
+    if (body?.secret !== process.env.ARCADE_WEBHOOK_SECRET) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
@@ -32,6 +22,11 @@ export async function POST(req: Request) {
     }
 
     await addPointsServer({ db, address, delta, reason });
+
+    // fire-and-forget Discord message
+    const hook = process.env.DISCORD_ARCADE_WEBHOOK || "";
+    const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
+    postToDiscord(hook, `🎮 +${delta} XP for **${short}** ${reason ? `— _${reason}_` : ""}`);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

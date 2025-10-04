@@ -4,185 +4,166 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, ExternalLink } from "lucide-react";
-
-import { ethereum, polygon } from "thirdweb/chains";
+import { Loader2, ExternalLink } from "lucide-react";
 import { Insight } from "thirdweb";
+import { ethereum, polygon } from "thirdweb/chains";
 import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client";
-
-type Props = {
-  owner: string; // settled address ("" if not connected)
-};
 
 type NFTData = {
   tokenId: string;
   name: string;
   image: string;
   description?: string;
-  attributes?: Array<{ trait_type: string; value: string }>;
   tokenAddress?: string;
   chainId?: number;
-  collection?: string;
 };
 
-const IPFS = ["https://ipfs.io/ipfs/", "https://cloudflare-ipfs.com/ipfs/", "https://nftstorage.link/ipfs/"];
-const ipfsToHttp = (u?: string) => (u?.startsWith("ipfs://") ? `${IPFS[0]}${u.replace("ipfs://", "")}` : u);
-const pickImage = (m: any) =>
-  ipfsToHttp(m?.image) ||
-  ipfsToHttp(m?.image_url) ||
-  ipfsToHttp(m?.imageURI) ||
-  ipfsToHttp(m?.animation_url) ||
-  "/prime-mates-nft.jpg";
-
-const collections = [
-  { name: "Prime Mates Board Club", address: "0x12662b6a2a424a0090b7d09401fb775a9b968898", chainId: 1 },
-  { name: "Prime To The Bone",      address: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75", chainId: 137 },
-  { name: "Prime Halloween",        address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8", chainId: 1 },
-  { name: "Prime Mates Christmas Club", address: "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf", chainId: 137 },
+// ── Prime collections (exactly these 4) ────────────────────────────────────────
+const PRIME_COLLECTIONS = [
+  { name: "Prime Mates Board Club",      address: "0x12662b6a2a424a0090b7d09401fb775a9b968898", chainId: 1 },
+  { name: "Prime To The Bone",           address: "0x72bcde3c41c4afa153f8e7849a9cf64e2cc84e75", chainId: 137 },
+  { name: "Prime Halloween",             address: "0x46d5dcd9d8a9ca46e7972f53d584e14845968cf8", chainId: 1 },
+  { name: "Prime Mates Christmas Club",  address: "0xab9f149a82c6ad66c3795fbceb06ec351b13cfcf", chainId: 137 },
 ] as const;
 
-const openSeaUrl = (chainId: number, contract: string, tokenId: string | number) => {
+const PRIME_ADDR_SET = new Set(PRIME_COLLECTIONS.map(c => c.address.toLowerCase()));
+
+const IPFS = (u?: string) =>
+  u?.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${u.replace("ipfs://", "")}` : u;
+
+function pickImage(meta: any) {
+  return (
+    IPFS(meta?.image) ||
+    IPFS(meta?.image_url) ||
+    IPFS(meta?.imageURI) ||
+    IPFS(meta?.animation_url) ||
+    "/prime-mates-nft.jpg"
+  );
+}
+
+function openSeaUrl(chainId?: number, contract?: string, tokenId?: string) {
+  if (!chainId || !contract || !tokenId) return undefined;
   const base = chainId === 1 ? "ethereum" : "matic";
   return `https://opensea.io/assets/${base}/${contract}/${tokenId}`;
-};
+}
 
-export function NFTGrid({ owner }: Props) {
+export function NFTGrid({ owner }: { owner: string }) {
   const [items, setItems] = useState<NFTData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState<string>("");
 
-  const byAddr = useMemo(
-    () => Object.fromEntries(collections.map((c) => [c.address.toLowerCase(), c])),
-    [],
-  );
-
-  async function load() {
-    if (!owner) {
-      setItems([]);
-      setNotice("");
-      return;
-    }
-    setLoading(true);
-    setNotice("");
-    try {
-      const owned = await Insight.getOwnedNFTs({
-        client: thirdwebClient,
-        chains: [ethereum, polygon],
-        ownerAddress: owner,
-        contractAddresses: collections.map((c) => c.address),
-        includeMetadata: true,
-        queryOptions: { resolve_metadata_links: "true", limit: 500 },
-      });
-
-      const mapped: NFTData[] = owned.map((n) => {
-        const meta = n.metadata || {};
-        const info = byAddr[n.tokenAddress.toLowerCase()];
-        return {
-          tokenId: n.id.toString(),
-          name: meta.name || `${info?.name ?? "Token"} #${n.id.toString()}`,
-          image: pickImage(meta),
-          description: meta.description,
-          attributes: Array.isArray(meta.attributes) ? meta.attributes : [],
-          tokenAddress: n.tokenAddress,
-          chainId: n.chainId,
-          collection: info?.name,
-        };
-      });
-
-      // sort by collection then tokenId
-      mapped.sort((a, b) =>
-        (a.collection || "").localeCompare(b.collection || "") ||
-        Number(a.tokenId) - Number(b.tokenId),
-      );
-
-      setItems(mapped);
-    } catch (err: any) {
-      console.error("[dashboard] load NFTs error", err);
-      if (err?.message?.includes("Unauthorized domain")) {
-        setNotice("Preview domain not authorized by thirdweb. You’ll see NFTs after deploy domain is allowed.");
-      } else {
-        setNotice("Failed to load NFTs. Please try again.");
-      }
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const chains = useMemo(() => [ethereum, polygon], []);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner]);
+    let mounted = true;
+    async function run() {
+      if (!owner) return;
+      setLoading(true);
+      try {
+        // Query ONLY our contracts
+        const res = await Insight.getOwnedNFTs({
+          client: thirdwebClient,
+          chains,
+          ownerAddress: owner,
+          contractAddresses: PRIME_COLLECTIONS.map(c => c.address),
+          includeMetadata: true,
+          queryOptions: { resolve_metadata_links: "true", limit: 300 },
+        });
 
-  if (!owner) {
+        if (!mounted) return;
+
+        // Double-guard filter (in case API returns extras)
+        const filtered = res.filter(n =>
+          n.tokenAddress && PRIME_ADDR_SET.has(n.tokenAddress.toLowerCase()),
+        );
+
+        const mapped: NFTData[] = filtered.map((n) => ({
+          tokenId: n.id.toString(),
+          name:
+            n.metadata?.name ||
+            `${n.tokenAddress.slice(0, 6)}…${n.tokenAddress.slice(-4)} #${n.id}`,
+          image: pickImage(n.metadata),
+          description: n.metadata?.description,
+          tokenAddress: n.tokenAddress,
+          chainId: n.chainId,
+        }));
+        setItems(mapped);
+      } catch (e) {
+        console.error("[NFTGrid] load error:", e);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [owner, chains]);
+
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center">
+        <Loader2 className="h-6 w-6 animate-spin inline-block mr-2 text-yellow-500" />
+        <span className="text-sm text-gray-300">Loading your Prime NFTs…</span>
+      </div>
+    );
+  }
+
+  if (!items.length) {
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center text-sm text-gray-300">
-        Connect your wallet to view your NFTs.
+        No Prime NFTs found in this wallet.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Your Prime NFTs</h3>
-        <Button size="sm" variant="ghost" onClick={load} className="text-gray-300 hover:text-white">
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+    <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="font-semibold">Your Prime NFTs</div>
+        <Badge variant="secondary" className="bg-gray-800">{items.length}</Badge>
       </div>
 
-      {notice && (
-        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
-          {notice}
-        </div>
-      )}
-
-      {loading && items.length === 0 ? (
-        <div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900 p-12 text-gray-400">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Loading your NFTs…
-        </div>
-      ) : items.length === 0 ? (
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 text-center text-sm text-yellow-200">
-          No NFTs found for this wallet across your configured collections.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {items.map((nft) => (
-            <Card key={`${nft.tokenAddress}-${nft.tokenId}`} className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition">
-              <CardContent className="p-4">
-                <div className="aspect-square mb-3 overflow-hidden rounded-lg bg-gray-800">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {items.map((nft) => {
+          const link = openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId);
+          return (
+            <Card
+              key={`${nft.tokenAddress}-${nft.tokenId}`}
+              className="bg-gray-900 border-gray-800 hover:border-yellow-500 transition-all duration-300"
+            >
+              <CardContent className="p-3">
+                <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-800">
                   <img
                     src={nft.image}
                     alt={nft.name}
-                    className="h-full w-full object-cover"
-                    onError={(e) => ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")}
+                    className="w-full h-full object-cover"
+                    onError={(e) =>
+                      ((e.target as HTMLImageElement).src = "/prime-mates-nft.jpg")
+                    }
                   />
                 </div>
-                <div className="mb-2 font-semibold">{nft.name}</div>
-                <div className="mb-3 flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-gray-800 text-gray-300">#{nft.tokenId}</Badge>
-                  {nft.collection ? (
-                    <Badge variant="secondary" className="bg-gray-800 text-gray-300">{nft.collection}</Badge>
-                  ) : null}
+                <div className="font-semibold text-sm truncate">{nft.name}</div>
+                <div className="flex justify-between items-center mt-2">
+                  <Badge variant="secondary" className="bg-gray-800 text-[10px]">
+                    #{nft.tokenId}
+                  </Badge>
+                  {link && (
+                    <a href={link} target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline" className="h-7 px-2">
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                        View
+                      </Button>
+                    </a>
+                  )}
                 </div>
-                {nft.tokenAddress && nft.chainId ? (
-                  <a
-                    href={openSeaUrl(nft.chainId, nft.tokenAddress, nft.tokenId)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center text-sm text-yellow-400 hover:underline"
-                  >
-                    <ExternalLink className="mr-1 h-4 w-4" />
-                    View on OpenSea
-                  </a>
-                ) : null}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
+
+export default NFTGrid;
