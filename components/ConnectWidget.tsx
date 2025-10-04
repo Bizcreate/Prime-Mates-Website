@@ -1,46 +1,91 @@
+// components/ConnectWidget.tsx
 "use client";
-import { ConnectButton } from "thirdweb/react";
-import { thirdwebClient as client } from "@/packages/prime-shared/thirdweb/client";
-import { createWallet } from "thirdweb/wallets";
-import { polygon, mainnet, base, arbitrum } from "thirdweb/chains";
 
-const supportedChains = [mainnet, polygon, base, arbitrum];
+import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import {
+  ConnectButton,
+  useActiveAccount,
+  useDisconnect,
+} from "thirdweb/react";
+import { createWallet, walletConnect } from "thirdweb/wallets";
+import { ethereum, polygon } from "thirdweb/chains";
+import { thirdwebClient } from "@/packages/prime-shared/thirdweb/client";
 
-const wallets = [
-  createWallet("io.metamask"),
-  createWallet("com.coinbase.wallet"),
-  createWallet("me.rainbow"),
-  createWallet("com.trustwallet.app"),
-  createWallet("io.zerion.wallet"),
-];
-
-export default function ConnectWidget() {
-  return (
-    <ConnectButton
-      client={client}
-      wallets={wallets}
-      chains={supportedChains}
-      connectButton={{
-        label: "Connect Wallet",
-        className:
-          "bg-primary text-black border-primary hover:bg-primary/90 font-semibold px-6 py-2 rounded-lg glow-yellow-soft",
-      }}
-      detailsButton={{
-        className:
-          "bg-primary/10 text-primary border-primary hover:bg-primary/20 font-semibold px-4 py-2 rounded-lg glow-yellow-soft",
-      }}
-      switchButton={{
-        className:
-          "bg-gray-800 text-white border-gray-700 hover:bg-gray-700 font-semibold px-4 py-2 rounded-lg",
-      }}
-      theme="dark"
-      showAllWallets={false}
-      connectModal={{
-        size: "compact",
-        showThirdwebBranding: false,
-      }}
-    />
-  );
+function isMobileLike() {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return /android|iphone|ipad|ipod|mobile/i.test(ua);
 }
 
-export { ConnectWidget };
+export default function ConnectWidget() {
+  const account = useActiveAccount();
+  const { disconnect } = useDisconnect();
+  const [err, setErr] = useState<string | null>(null);
+
+  const wallets = useMemo(() => {
+    // Always offer WalletConnect
+    const wc = walletConnect();
+
+    // Prefer a specific injected wallet if present (MetaMask / Coinbase)
+    const mm = createWallet("io.metamask");
+    const cb = createWallet("com.coinbase.wallet");
+    const injectedGeneric = createWallet("injected");
+
+    // On mobile: primary = WalletConnect (most reliable)
+    if (isMobileLike()) {
+      return [wc, mm, cb, injectedGeneric];
+    }
+    // On desktop: try injected first, then WC
+    return [mm, cb, injectedGeneric, wc];
+  }, []);
+
+  const chains = [ethereum, polygon];
+
+  return (
+    <div className="inline-flex items-center gap-3">
+      <ConnectButton
+        client={thirdwebClient}
+        wallets={wallets}
+        chains={chains}
+        theme={"dark"}
+        // Called whenever a connection error occurs; turn cryptic {} into readable text
+        onError={(e) => {
+          // e may be {} or a string or an Error, normalize:
+          let msg = "Failed to connect wallet.";
+          if (typeof e === "string") msg = e;
+          else if (e && typeof (e as any).message === "string") msg = (e as any).message;
+          setErr(msg);
+          // Also log the raw thing for debugging:
+          // eslint-disable-next-line no-console
+          console.error("[wallet connect error]", e);
+        }}
+        connectButton={{
+          label: "Connect Wallet",
+        }}
+        autoConnect={false}
+        // Small UI tweaks (optional)
+        showAllWallets={true}
+      />
+
+      {account ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-gray-700 text-gray-300"
+          onClick={() => {
+            setErr(null);
+            disconnect();
+          }}
+        >
+          Disconnect
+        </Button>
+      ) : null}
+
+      {err ? (
+        <span className="text-xs text-red-400">{err}</span>
+      ) : null}
+    </div>
+  );
+}

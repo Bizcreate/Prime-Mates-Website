@@ -1,48 +1,92 @@
 "use client";
 
-import { db } from "./firebase";
 import {
-  doc, setDoc, updateDoc, increment, serverTimestamp, onSnapshot,
-  collection, addDoc, getDoc, query, orderBy, limit
+  collection,
+  doc,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  increment,
+  type Unsubscribe,
 } from "firebase/firestore";
+import { db as sharedDb } from "@/lib/firebase/arcade";
 
-export function userDoc(address: string) {
-  return doc(db, "users", address.toLowerCase());
-}
-export function pointsDoc(address: string) {
-  return doc(db, "users", address.toLowerCase(), "stats", "points");
-}
-export function activityCol(address: string) {
-  return collection(db, "users", address.toLowerCase(), "activity");
-}
+/** users/{address} shape */
+export type UserDoc = {
+  xp?: number;                 // total XP
+  telegramId?: string | null;  // optional mapping for TG
+  updatedAt?: any;
+};
 
-export async function ensureUser(address: string) {
-  const u = userDoc(address);
-  const snap = await getDoc(u);
-  if (!snap.exists()) {
-    await setDoc(u, { address: address.toLowerCase(), createdAt: serverTimestamp() });
-    await setDoc(pointsDoc(address), { value: 0, updatedAt: serverTimestamp() });
+/** users/{address}/activity/{id} shape */
+export type ActivityDoc = {
+  type: "points" | "stake" | "unstake" | "game";
+  delta?: number;         // for points
+  reason?: string | null; // e.g. game name or tournament
+  tokenId?: string;
+  at: any;                // Firestore Timestamp
+};
+
+/** Subscribe to XP */
+export function subscribePoints(
+  address: string,
+  cb: (xp: number) => void
+): Unsubscribe {
+  if (!sharedDb || !address) {
+    return () => {};
   }
-}
-
-export function subscribePoints(address: string, cb: (value: number) => void) {
-  return onSnapshot(pointsDoc(address), (snap) => {
-    const val = (snap.exists() ? (snap.data().value as number) : 0) || 0;
-    cb(val);
+  const ref = doc(sharedDb, "users", address.toLowerCase());
+  return onSnapshot(ref, (snap) => {
+    const data = (snap.data() as UserDoc) || {};
+    cb(Number(data.xp ?? 0));
   });
 }
 
-export function subscribeRecentActivity(address: string, cb: (rows: any[]) => void) {
-  const q = query(activityCol(address), orderBy("at", "desc"), limit(10));
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+/** Subscribe to last N activities (default 10) */
+export function subscribeRecentActivity(
+  address: string,
+  cb: (items: Array<{ id: string } & ActivityDoc>) => void,
+  limit = 10
+): Unsubscribe {
+  if (!sharedDb || !address) return () => {};
+  const ref = collection(sharedDb, "users", address.toLowerCase(), "activity");
+  const q = query(ref, orderBy("at", "desc"));
+  return onSnapshot(q, (snap) => {
+    const items = snap.docs.slice(0, limit).map((d) => ({ id: d.id, ...(d.data() as ActivityDoc) }));
+    cb(items);
+  });
 }
 
-export async function logActivity(address: string, row: Record<string, any>) {
-  await addDoc(activityCol(address), { ...row, at: serverTimestamp() });
-}
+/** Server write helper used by webhook route (exported for reuse if needed) */
+export async function addPointsServer({
+  db = sharedDb!,
+  address,
+  delta,
+  reason,
+}: {
+  db?: ReturnType<typeof getFirestore>;
+  address: string;
+  delta: number;
+  reason?: string;
+}) {
+  const addr = address.toLowerCase();
+  const userRef = doc(db, "users", addr);
+  const activityRef = doc(collection(db, "users", addr, "activity"));
 
-export async function addPoints(address: string, delta: number, reason = "game") {
-  await ensureUser(address);
-  await updateDoc(pointsDoc(address), { value: increment(delta), updatedAt: serverTimestamp() });
-  await logActivity(address, { type: "points", delta, reason });
+  // Increment XP + append activity
+  await setDoc(
+    userRef,
+    { xp: increment(delta), updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  await setDoc(activityRef, {
+    type: "points",
+    delta,
+    reason: reason ?? null,
+    at: serverTimestamp(),
+  } as ActivityDoc);
 }

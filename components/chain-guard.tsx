@@ -1,39 +1,66 @@
 "use client";
 
-import { useActiveAccount, useActiveWallet, useChain, useSwitchActiveChain } from "thirdweb/react";
-import { supportedChains } from "@/lib/thirdweb";
+import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { useActiveWalletChain, useSwitchActiveWalletChain } from "thirdweb/react";
+import { ethereum, polygon } from "thirdweb/chains";
 
-export default function ChainGuard() {
-  const account = useActiveAccount();
-  const wallet = useActiveWallet();
-  const { chain } = useChain();
-  const { switchActiveChain, isPending } = useSwitchActiveChain();
+type Props = {
+  /** Allowed chain IDs. Defaults to Ethereum + Polygon. */
+  allowedChainIds?: number[];
+  /** If true, show guard even when no wallet is connected. */
+  requireConnected?: boolean;
+  children?: ReactNode;
+};
 
-  // not connected? nothing to show.
-  if (!account || !wallet) return null;
+export default function ChainGuard({
+  allowedChainIds = [ethereum.id, polygon.id], // 1, 137
+  requireConnected = false,
+  children,
+}: Props) {
+  const chain = useActiveWalletChain();
+  const switchChain = useSwitchActiveWalletChain();
 
-  const isSupported = !!supportedChains.find((c) => c.id === chain?.id);
-  if (isSupported) return null;
-
-  return (
-    <div className="rounded-lg border border-yellow-600/40 bg-yellow-500/10 p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div>
-        You’re connected to an unsupported network. Pick a supported chain:
+  // No wallet connected
+  if (!chain) {
+    if (!requireConnected) return <>{children}</>;
+    return (
+      <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4 text-yellow-200">
+        Connect your wallet to continue.
       </div>
-      <div className="flex gap-2">
-        {supportedChains.map((c) => (
+    );
+  }
+
+  const isAllowed = allowedChainIds.includes(chain.id);
+
+  if (!isAllowed) {
+    return (
+      <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4 text-yellow-100">
+        <div className="mb-2 font-semibold">Wrong network</div>
+        <div className="mb-4 text-sm opacity-90">
+          You are on <span className="font-mono">{chain.name ?? chain.id}</span>.  
+          Please switch to Ethereum or Polygon.
+        </div>
+        <div className="flex gap-2">
           <Button
-            key={c.id}
+            onClick={() => switchChain(ethereum)}
+            className="bg-yellow-500 text-black hover:bg-yellow-400"
             size="sm"
-            variant="outline"
-            onClick={() => switchActiveChain(c)}
-            disabled={isPending}
           >
-            Switch to {c.name}
+            Switch to Ethereum
           </Button>
-        ))}
+          <Button
+            onClick={() => switchChain(polygon)}
+            variant="outline"
+            size="sm"
+            className="border-yellow-500 text-yellow-400 hover:bg-yellow-500/10"
+          >
+            Switch to Polygon
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <>{children}</>;
 }
